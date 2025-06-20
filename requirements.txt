@@ -1,0 +1,9 @@
+numpy
+scipy
+lmfit
+matplotlib
+astropy
+zero_point
+pandas
+ldtk
+corner

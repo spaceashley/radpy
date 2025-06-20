@@ -1,3 +1,8 @@
+#data files
+src/radpy/data/ClassicData.csv
+src/radpy/data/PAVOdata.csv
+src/radpy/data/Vegadata.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

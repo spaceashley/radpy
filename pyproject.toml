@@ -18,11 +18,12 @@ dependencies = [
     "numpy~=1.25.2",
     "pandas~=2.2.2",
     "scipy~=1.10.0",
-    "zero_point~=0.0.1",
+    "gaiadr3-zeropoint (>=0.0.4,<0.1.0)",
     "pytest~=7.1.2"
 ]
 [project.urls]
 repository = "https://github.com/spaceashley/radpy.git"
+
 [tool.poetry.dependencies]
 astropy = "6.1.6"
 corner = "2.2.2"
@@ -32,9 +33,15 @@ matplotlib = "3.9.2"
 numpy = "1.25.2"
 pandas = "^2.2.2"
 scipy = "1.10.0"
-zero_point = "0.0.1"
-
+#gaiadr3-zeropoint = "0.1.0"
 pytest = "7.1.2"
+
+
+#[tool.poetry.build]
+#include = ["src/radpy/data/ldc_I_table/csv",
+#           "src/radpy/data/ldc_k_table.csv",
+#           "src/radpy/data/ldctable.csv"
+#]
 
 [build-system]
 requires = [

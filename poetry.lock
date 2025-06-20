@@ -393,6 +393,21 @@ unicode = ["unicodedata2 (>=15.1.0) ; python_version <= \"3.12\""]
 woff = ["brotli (>=1.0.1) ; platform_python_implementation == \"CPython\"", "brotlicffi (>=0.8.0) ; platform_python_implementation != \"CPython\"", "zopfli (>=0.1.4)"]
 
 [[package]]
+name = "gaiadr3-zeropoint"
+version = "0.0.5"
+description = "eDR3 zero point functions from Lindegren et al. 2020 implemented in Python."
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "gaiadr3_zeropoint-0.0.5-py3-none-any.whl", hash = "sha256:a11555cedc1e3e199b3598262aa27f4fcd40141ad3f867708caf8bf0ea7e77f6"},
+    {file = "gaiadr3_zeropoint-0.0.5.tar.gz", hash = "sha256:a0ef81fd9cea98d4d957062dc0782beac42381e7622d1ff505179f0cd56b1509"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "iniconfig"
 version = "2.1.0"
 description = "brain-dead simple config-ini parsing"
@@ -1430,18 +1445,7 @@ files = [
     {file = "widgetsnbextension-4.0.14.tar.gz", hash = "sha256:a3629b04e3edb893212df862038c7232f62973373869db5084aed739b437b5af"},
 ]
 
-[[package]]
-name = "zero-point"
-version = "0.0.1"
-description = "soon"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "zero-point-0.0.1.tar.gz", hash = "sha256:2792745ad6ccac27b3055eca48ec2c478c3eb252651ed3da88decb9fd3998ab2"},
-]
-
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.12"
-content-hash = "ca1cceb6f5e9f7b76013d53dfdc1df93f59f83bc9975cc1f352cb5492c469e31"
+content-hash = "8db8d675f091bf3d985ce896ad8db28420b625c99e09871bdd9916cf7d4748be"
