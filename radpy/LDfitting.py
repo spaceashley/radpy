@@ -10,7 +10,7 @@ from limbdarkcoeffs import ldc_calc
 
 import warnings
 warnings.filterwarnings("ignore", message="Using UFloat objects with std_dev==0 may give unexpected results.")
-
+warnings.filterwarnings("ignore", message="DataFrameGroupBy.apply operated on the grouping columns")
 #Limb-darkened disk V2 equation
 def V2(sf, theta, mu):
     #mu = 0.7039725

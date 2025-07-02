@@ -6,6 +6,7 @@ from astropy.stats import mad_std
 from radpy.stellar import temp
 import warnings
 warnings.filterwarnings("ignore", message="Using UFloat objects with std_dev==0 may give unexpected results.")
+warnings.filterwarnings("ignore", message="DataFrameGroupBy.apply operated on the grouping columns")
 #Uniform disk V2 equation
 def UDV2(sf, theta):
     x = np.pi*sf*(theta/(206265*1000))
