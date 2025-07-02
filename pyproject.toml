@@ -1,5 +1,5 @@
 [project]
-name = 'radpy'
+name = 'rsadpy'
 version = "0.1.0"
 description = "Robust Angular Diameters in Python: an angular diameter fitting routine for multi-wavelength interferometric data"
 authors = [
