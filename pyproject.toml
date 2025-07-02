@@ -12,8 +12,10 @@ keywords = ["interferometry", "angular diameters", "CHARA"]
 dependencies = [
     "astropy~=6.1.6",
     "corner~=2.2.2",
+    "astroquery~=0.4.6",
     "ipympl~=0.9.4",
     "lmfit~=1.2.2",
+    "ipympl~=0.9.4",
     "matplotlib~=3.9.2",
     "numpy~=1.25.2",
     "pandas~=2.2.2",
@@ -26,6 +28,7 @@ repository = "https://github.com/spaceashley/radpy.git"
 
 [tool.poetry.dependencies]
 astropy = "6.1.6"
+astroquery = "0.4.6"
 corner = "2.2.2"
 ipympl = "0.9.4"
 lmfit = "1.2.2"
@@ -33,8 +36,9 @@ matplotlib = "3.9.2"
 numpy = "1.25.2"
 pandas = "^2.2.2"
 scipy = "1.10.0"
-#gaiadr3-zeropoint = "0.1.0"
+gaiadr3-zeropoint = "^0.0.4"
 pytest = "7.1.2"
+uncertainties = "3.1.7"
 
 
 #[tool.poetry.build]

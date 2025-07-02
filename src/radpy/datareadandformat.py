@@ -1,110 +1,302 @@
 import pandas as pd
 import numpy as np
-from radpy.stellar import dist_calc
-from zero_point import zpt
-from scipy.interpolate import LinearNDInterpolator
-from radpy.config import classicpath, pavopath, vegapath, ldcipath, ldckpath, ldcrpath
-
-#reading in the PAVO data
-#PAVO data has 5 columns, spatial frequency (baseline/lambda), the V2, error on the V2, then the u and v coordinates
-#the u and v coordinates can be used to determine the baseline by adding them in quadrature. Then we can get the wavelength
-#out by dividing the baseline by the spatial frequency
-
-pavo = pd.read_csv(pavopath)
-spf_p = pavo['B/lambda']                    #spatial frequency in rad^-1
-v2_p = pavo['V2']                           #Visibility squared
-dv2_p = pavo['sigma_V2']                    #error on V2
-ucoord = pavo['U(meters)']                #U coords (meters)
-vcoord = pavo['V(meters)']                #V coords (meters)
-brack_p = pavo['Bracket']
-B_p = np.sqrt((ucoord**2) + (vcoord**2))    #Baseline (meters)
-wave_p = B_p/spf_p                              #wavelengths for each v2 (meters)
-band_p = 5e-9                               #error on the wavelength taken as 5nm (converted into meters)
-inst_p = pavo['Instrument']
-np.random.seed()
-
-#below are PAVOs results
-udtheta = 1.037             #PAVO UD angular diameter in mas
-uddtheta = 0.008            #PAVO UD error in ang diam in mas
-ldtheta = 1.119             #PAVO LD angular diameter
-lddtheta = 0.011            #PAVO LD angular diamter
-pavo_ldc = 0.7039725        #PAVO LDC (used my interpolation function to find this originally)
-
-#Reading in the CLASSIC data
-#Classic data has 7 columns, MJD, baseline in meters, a column tabby told me to ignore, the visibility, and the error, a flag, and the JD again
-#Note: Classic visibilities are not squared so need to do that myself
-classic = pd.read_csv(classicpath)
-B_c = classic['B']            #baseline (meters)
-v_c = classic['Vis']          #visbility
-dv_c = classic['Vis_e']       #vis error
-brack_c = classic['Bracket']  #"bracket": for classic they are split into dates of observations
-v2_c = v_c**2                 #visibility squared
-dv2_c = v2_c*np.sqrt(2*(dv_c/v_c)**2)   #error on v2
-wave_c = pd.Series(2.1329e-6*np.ones(len(B_c)))            #CLASSIC operates in K' band which is centered on this (meters)
-band_c = 5e-9                 #error on wavelength taken as 5 nm (converted to meters)
-inst_c = classic['Instrument']
-spf_c = B_c/wave_c
-avg_dv2_c = classic['Avg_v2_err']   #average error for v2 per night
-
-#Reading in the VEGA data
-#Vega's data was taken from Roxanne's paper. Has MJD, UT, Telescope, Baseline, sequence, S/N, V2, sigma_Stat, sigma_sys, lambda, and bandwidth
-vega = pd.read_csv(vegapath)
-B_v = vega['Baseline length']   #baseline (meters)
-v2_v = vega['V2']               #Visibility squared
-dv2_sys = vega['sigma_sys']     #systematic error on v2
-dv2_stat = vega['sigma_stat']   #statistical error on v2
-wave_v = vega['lambda']*1e-9    #wavelength in meters
-band_v = 5e-9                   #error on wavelength taken as 5 nm
-brack_v = vega['Bracket']       #bracket on vega data, separated into time stamps: total of 20 brackets
-dv2_v = np.sqrt((dv2_sys**2) + (dv2_stat)**2)  #combined error
-inst_v = vega['Instrument']
-spf_v = B_v/wave_v
-pavo_ldc = 0.7039725        #PAVO LDC (used my interpolation function to find this originally)
-
-#combining the three data sets into one dataframe to work with
-b = pd.concat([B_p, B_c, B_v], axis = 0, ignore_index = True)
-v2 = pd.concat([v2_p, v2_c, v2_v],axis = 0, ignore_index = True)
-dv2 = pd.concat([dv2_p, dv2_c, dv2_v], axis = 0, ignore_index = True)
-brack = pd.concat([brack_p, brack_c, brack_v], axis = 0, ignore_index = True)
-wave = pd.concat([wave_p, wave_c, wave_v], axis = 0, ignore_index = True)
-inst = pd.concat([inst_p, inst_c, inst_v], axis = 0, ignore_index = True)
-
-spf = b/wave
-
-#getting the GAIA corrected parallax, distance, and reading in the rest of the values needed
-zpt.load_tables()
-
-phot_g_mean_mag = 5.231896
-nu_eff_used_in_astrometry = 1.472
-pseudocolour = 7.1
-ecl_lat = 54.54138702773
-astrometric_params_solved = 31
-correction = zpt.get_zpt(phot_g_mean_mag, nu_eff_used_in_astrometry, pseudocolour, ecl_lat, astrometric_params_solved)
-
-p = 152.864                 #units in mas
-pc_err = 0.0494             #units in mas
-Fbol = 21.751               #bolometric flux in 10e-8 ergs/cm^2/s
-dF = 0.585                  #bolometric flux error in ergs/cm^2/s
-logg = 4.5
-
-distance = dist_calc(p,pc_err,correction)
-D = distance[0]
-dD = distance[1]
-
-# LDCs from Claret et al. 2011
-# Using the Phoenix model and least squares method
-#Need the K and R filter to accomodate CLASSIC (K band), VEGA (R band), and PAVO (R band)
-ldc_dataR = pd.read_csv(ldcrpath)
-tempsR = ldc_dataR['Teff'].tolist()
-gravityR = ldc_dataR['logg'].tolist()
-musR = ldc_dataR['u'].tolist()
-
-ldc_dataK = pd.read_csv(ldckpath)
-tempsK = ldc_dataK['Teff'].tolist()
-gravityK = ldc_dataK['logg'].tolist()
-musK = ldc_dataK['u'].tolist()
-# Define the interpolation function
-ldc_func_R = LinearNDInterpolator((tempsR, gravityR), musR)
-ldc_func_K = LinearNDInterpolator((tempsK, gravityK), musK)
+import astropy.io.fits as fits
 
 
+def oifits_to_pandas(filename, inst_name):
+    # Reads in an oifits file and converts into a pandas dataframe with the necessary information needed for RADPy
+    # Extracts the following data:
+    #   V2, dv2, ucoord, vcoord, mjd, time, effective wavelength, and effective bandwidth
+    # Converts the wavelengths and bandwidth arrays into lists of lists to match the V2 and V2err lists
+    # creates a dataframe
+    # Sorts the dataframe by MJD and then assigns a bracket number based on the date groupings
+    # Explodes the dataframe by extracting out each list for V2, V2_err, wavelength, and bandwidth
+    # returns the exploded, sorted, and bracket labeled df
+
+    data = fits.open(filename)
+    v2 = data["OI_VIS2"].data["VIS2DATA"]
+    dv2 = data["OI_VIS2"].data["VIS2ERR"]
+    ucoord = data["OI_VIS2"].data["UCOORD"]
+    vcoord = data["OI_VIS2"].data["VCOORD"]
+    mjd = data["OI_VIS2"].data["MJD"]
+    time = data["OI_VIS2"].data["TIME"]
+    wl = data["OI_WAVELENGTH"].data["EFF_WAVE"]
+    band = data["OI_WAVELENGTH"].data["EFF_BAND"]
+
+    wl_list = [wl.tolist() for _ in range(len(v2))]
+    band_list = [band.tolist() for _ in range(len(v2))]
+
+    pd.set_option('display.float_format', '{:.12f}'.format)
+    df = pd.DataFrame({'MJD': mjd, 'Time': time, 'V2': v2.tolist(), 'V2_err': dv2.tolist(),
+                       'Eff_wave[m]': wl_list, 'Eff_band[m]': band_list, 'UCOORD[m]': ucoord, 'VCOORD[m]': vcoord})
+
+    sorted_df = brackets(df, inst_name)
+    # sorted_df = df.sort_values(by = 'MJD')
+    # sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup()+1
+
+    sorted_df['zipped'] = sorted_df.apply(
+        lambda row: list(zip(row['V2'], row['V2_err'], row['Eff_wave[m]'], row['Eff_band[m]'])), axis=1)
+    df_exploded = sorted_df.explode('zipped').reset_index(drop=True)
+    df_exploded[['V2', 'V2_err', 'Eff_wave[m]', 'Eff_band[m]']] = pd.DataFrame(df_exploded['zipped'].tolist(),
+                                                                               index=df_exploded.index)
+    df_exploded = df_exploded.drop(columns='zipped')
+    df_exploded['Instrument'] = [inst_name] * len(df_exploded)
+
+    return df_exploded
+
+
+def filename_extension(filename, inst_name, verbose=False):
+    #########################################################################
+    # Function: filename_extension                                          #
+    # Inputs: filename -> name of data file                                 #
+    #         inst_name -> Instrument identifier                            #
+    #                      C - Classic                                      #
+    #                      P - PAVO                                         #
+    #                      V - VEGA                                         #
+    #                      M - MIRCX                                        #
+    #                      MY - MYSTIC                                      #
+    #                      S - SPICA                                        #
+    #         verbose -> default is False, if true, allows print statements #
+    # Outputs: data frame of the data with the instrument added as a column #
+    # What it does:                                                         #
+    #         1. Checks what format the file is in                          #
+    #         If .csv:                                                      #
+    #            2a. Uses pandas.read_csv to read in the file               #
+    #            3a. Adds the Instrument column                             #
+    #         If .txt:                                                      #
+    #            2b. Opens the file and reads in the first line             #
+    #            3b. Checks what delimiter the file is using                #
+    #            4b. Reads in the file                                      #
+    #            5b. Adds the instrument column                             #
+    #         If .oifits or .fits:                                          #
+    #            2c. uses the oifits_to_pandas function                     #
+    #         Returns the dataframe, and number of brackets                 #
+    #########################################################################
+
+    if filename.endswith('.csv'):
+        df = pd.read_csv(filename)
+        df['Instrument'] = [inst_name] * len(df)
+        sorted_df = brackets(df, inst_name)
+        num_brackets = sorted_df['Bracket'].max()
+        print('Number of brackets:', num_brackets)
+        return sorted_df, num_brackets
+        # return sorted_df
+    if filename.endswith('.txt'):
+        with open(filename, 'r') as f:
+            first_line = f.readline()
+        if ',' in first_line:
+            seps = ','
+            df = pd.read_csv(filename, sep=seps)
+            df['Instrument'] = [inst_name] * len(df)
+            sorted_df = brackets(df, inst_name)
+            num_brackets = sorted_df['Bracket'].max()
+            print('Number of brackets:', num_brackets)
+            return sorted_df, num_brackets
+            # return sorted_df
+        elif '\t' in first_line:
+            seps = '\t'
+            df = pd.read_csv(filename, sep=seps)
+            df['Instrument'] = [inst_name] * len(df)
+            sorted_df = brackets(df, inst_name)
+            num_brackets = sorted_df['Bracket'].max()
+            print('Number of brackets:', num_brackets)
+            return sorted_df, num_brackets
+            # return sorted_df
+        elif ' ' in first_line:
+            seps = ' '
+            df = pd.read_csv(filename, sep=seps)
+            df['Instrument'] = [inst_name] * len(df)
+            sorted_df = brackets(df, inst_name)
+            num_brackets = sorted_df['Bracket'].max()
+            print('Number of brackets:', num_brackets)
+            return sorted_df, num_brackets
+            # return sorted_df
+        else:
+            if verbose:
+                print("Unknown or no delimiter detected.")
+            return None
+    if filename.endswith('.oifits') or filename.endswith('.fits'):
+        df = oifits_to_pandas(filename, inst_name)
+        num_brackets = df['Bracket'].max()
+        print('Number of brackets:', num_brackets)
+        return df, num_brackets
+        # return df
+
+
+def brackets(df, instrument):
+    # bracket generator
+    # PAVO brackets are assigned via same baseline
+    # Classic has no brackets
+    # MIRCX/MYSTIC/SPICA are by MJD
+    # Vega is uncertain for now but will be date im fairly certain
+    if instrument == 'M' or instrument == 'm':
+        pd.set_option('display.float_format', '{:.12f}'.format)
+        sorted_df = df.sort_values(by='MJD')
+        sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup() + 1
+        return sorted_df
+    if instrument == 'P' or instrument == 'p':
+        pd.set_option('display.float_format', '{:.12f}'.format)
+        sorted_df = df.sort_values(by='U(meters)')
+        sorted_df['Bracket'] = sorted_df.groupby('U(meters)').ngroup() + 1
+        return sorted_df
+    if instrument == 'C' or instrument == 'c':
+        pd.set_option('display.float_format', '{:.12f}'.format)
+        df['Bracket'] = [1] * len(df)
+        return df
+    if instrument == 'S' or instrument == 's':
+        pd.set_option('display.float_format', '{:.12f}'.format)
+        sorted_df = df.sort_values(by='MJD')
+        sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup() + 1
+        return sorted_df
+    if instrument == 'My' or instrument == 'my':
+        pd.set_option('display.float_format', '{:.12f}'.format)
+        sorted_df = df.sort_values(by='MJD')
+        sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup() + 1
+        return sorted_df
+    if instrument == 'V' or instrument == 'v':
+        pd.set_option('display.float_format', '{:.12f}'.format)
+        sorted_df = df.sort_values(by='MJD')
+        sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup() + 1
+        return sorted_df
+
+
+def combined(*dfs, fulldf=False):
+    # combines the data into one big data frame if needed
+
+    b = pd.concat([df['B'] for df in dfs], ignore_index=True)
+    v2 = pd.concat([df['V2'] for df in dfs], ignore_index=True)
+    dv2 = pd.concat([df['dV2'] for df in dfs], ignore_index=True)
+    wave = pd.concat([df['Wave'] for df in dfs], ignore_index=True)
+    band = pd.concat([df['Band'] for df in dfs], ignore_index=True)
+    brack = pd.concat([df['Bracket'] for df in dfs], ignore_index=True)
+    inst = pd.concat([df['Instrument'] for df in dfs], ignore_index=True)
+
+
+    if not fulldf:
+        return b, v2, dv2, wave, band, brack, inst
+
+    if fulldf:
+        return pd.DataFrame({
+            'B': b, 'V2': v2, 'dV2': dv2,
+            'Wave': wave, 'Band': band,
+            'Bracket': brack, 'Instrument': inst})
+
+
+class InterferometryData:
+    def __init__(self, df, instrument_code):
+        self.raw = df.copy()
+        self.instrument = instrument_code.lower()
+        self.cleaned = None
+        self.process()
+
+    def process(self):
+        raise NotImplementedError("Subclasses must implement the .process() method")
+
+    def make_df(self, LDC=None):
+        n = len(self.B)
+
+        if LDC is None:
+            ldc_col = [None] * n
+        elif np.isscalar(LDC):
+            ldc_col = [LDC] * n
+        elif isinstance(LDC, (list, np.ndarray, pd.Series)) and len(LDC) == n:
+            ldc_col = LDC
+        else:
+            raise ValueError(f"LDC must be None, a scalar, or a list/array of length {n}, got {LDC}.")
+
+        return pd.DataFrame({
+            "B": self.B,
+            "V2": self.V2,
+            "dV2": self.dV2,
+            "Wave": self.Wave,
+            "LDC": ldc_col,
+            "Band": self.Band,
+            "Bracket": self.Bracket,
+            "Instrument": [self.instrument] * len(self.B)
+
+        })
+
+    def make_ldmcdf(self, LDC):
+        # spf = self.B / self.Wave
+
+        return pd.DataFrame({
+            # "Spf":spf,
+            "B": self.B,
+            "V2": self.V2,
+            "dV2": self.dV2,
+            "LDC": LDC,
+            "Bracket": self.Bracket,
+            "Instrument": [self.instrument] * len(self.V2)
+        })
+
+
+class PavoData(InterferometryData):
+    def __init__(self, df):
+        super().__init__(df, instrument_code='p')
+
+    def process(self):
+        df = self.raw.dropna(subset=['V2', 'sigma_V2'])
+        self.cleaned = df
+
+        self.V2 = df['V2']
+        self.dV2 = df['sigma_V2']
+        self.U = df['U(meters)']
+        self.V = df['V(meters)']
+        self.B = np.sqrt(self.U ** 2 + self.V ** 2)
+        self.Wave = self.B / df['B/lambda']
+        self.Band = pd.Series(np.full(len(df), 5e-9))  # 5 nm
+        self.Bracket = df['Bracket']
+
+
+class ClassicData(InterferometryData):
+    def __init__(self, df):
+        super().__init__(df, instrument_code='c')
+
+    def process(self):
+        df = self.raw.dropna(subset=['Vis', 'Vis_e'])  # clean NaNs
+        self.cleaned = df
+        v = df['Vis']
+        dv = df['Vis_e']
+
+        self.B = df['B']
+        self.V2 = v ** 2
+        self.dV2 = self.V2 * np.sqrt(2 * (dv / v) ** 2)
+        self.Wave = pd.Series(np.full(len(self.B), 2.1329e-6))  # meters
+        self.Band = pd.Series(np.full(len(self.B), 5e-9))  # meters (5 nm)
+        self.Bracket = df['Bracket']
+
+
+class VegaData(InterferometryData):
+    def __init__(self, df):
+        super().__init__(df, instrument_code='v')
+
+    def process(self):
+        df = self.raw.dropna(subset=['V2', 'sigma_sys', 'sigma_stat'])  # clean NaNs
+        self.cleaned = df
+        dv2_sys = df['sigma_sys']
+        dv2_stat = df['sigma_stat']
+
+        self.B = df['Baseline length']
+        self.V2 = df['V2']
+        self.dV2 = np.sqrt((dv2_sys ** 2) + (dv2_stat) ** 2)
+        self.Wave = df['lambda'] * 1e-9
+        self.Band = pd.Series(np.full(len(df), 5e-9))
+        self.Bracket = df['Bracket']
+
+
+class MircxData(InterferometryData):
+    def __init__(self, df):
+        super().__init__(df, instrument_code='m')
+
+    def process(self):
+        df = self.raw.dropna(subset=['V2', 'V2_err'])  # clean NaNs
+        self.cleaned = df
+
+        ucoord = df['UCOORD[m]']
+        vcoord = df['VCOORD[m]']
+        self.B = np.sqrt((ucoord ** 2) + (vcoord ** 2))
+        self.V2 = df['V2']
+        self.dV2 = df['V2_err']
+        self.Wave = df['Eff_wave[m]']
+        self.Band = df['Eff_band[m]']
+        self.Bracket = df['Bracket']

@@ -3,7 +3,8 @@ scipy
 lmfit
 matplotlib
 astropy
-zero_point
+astroquery
+gaiadr3-zeropoint
 pandas
-ldtk
 corner
+ipympl
