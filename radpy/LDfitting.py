@@ -6,7 +6,7 @@ import scipy.special as ss
 from radpy.stellar import temp
 from astropy.stats import mad_std
 from radpy.UDfitting import chis, weight_avg, percent_diff, safe_theta_extraction
-from limbdarkcoeffs import ldc_calc
+from radpy.limbdarkcoeffs import ldc_calc
 
 import warnings
 warnings.filterwarnings("ignore", message="Using UFloat objects with std_dev==0 may give unexpected results.")
