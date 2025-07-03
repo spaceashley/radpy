@@ -253,7 +253,13 @@ def distances(star_name, plx=None, dplx=None, use_Hipp=False, verbose=False):
                     d, dd = use_hipparcos(star_name, plx, dplx, verbose)
                 return round(d, 5), round(d, dd)
 
-            ids = simbad_result['id']
+            # Find the column name for 'id' (case-insensitive)
+            id_col = next((col for col in simbad_result.colnames if col.lower() == "id"), None)
+
+            if id_col is not None:
+                ids = simbad_result[id_col]
+            else:
+                raise KeyError("No column named 'id' or 'ID' found in simbad_result")
 
             gaiadr3mask = ['Gaia DR3' in name for name in ids]
             if any(gaiadr3mask):
