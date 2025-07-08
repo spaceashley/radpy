@@ -82,39 +82,37 @@ def filename_extension(filename, inst_name, verbose=False):
         return sorted_df, num_brackets
         # return sorted_df
     if filename.endswith('.txt'):
+        header = None
+        data_start = 0
         with open(filename, 'r') as f:
-            first_line = f.readline()
-        if ',' in first_line:
-            seps = ','
-            df = pd.read_csv(filename, sep=seps)
-            df['Instrument'] = [inst_name] * len(df)
-            sorted_df = brackets(df, inst_name)
-            num_brackets = sorted_df['Bracket'].max()
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if line.strip().startswith('#'):
+                # Remove '#' and newline, then split by pipe (or whatever header delimiter you expect)
+                header = [col.strip() for col in line.strip()[1:].split('|')]
+                data_start = i + 1
+                if verbose:
+                    print(f"Header detected: {header}")
+                break
+
+        # Read the data lines (skip header and comments)
+        # Drop empty lines and comments
+        data_lines = [l for l in lines[data_start:] if l.strip() and not l.strip().startswith('#')]
+
+        # Save to a temp string buffer for pandas
+        from io import StringIO
+        data_str = ''.join(data_lines)
+        df = pd.read_csv(StringIO(data_str), sep=r'\s+', header=None, engine='python')
+        if header and len(header) == df.shape[1]:
+            df.columns = header
+        df['Instrument'] = [inst_name] * len(df)
+        sorted_df = brackets(df, inst_name)
+        num_brackets = sorted_df['Bracket'].max()
+        if verbose:
             print('Number of brackets:', num_brackets)
-            return sorted_df, num_brackets
-            # return sorted_df
-        elif '\t' in first_line:
-            seps = '\t'
-            df = pd.read_csv(filename, sep=seps)
-            df['Instrument'] = [inst_name] * len(df)
-            sorted_df = brackets(df, inst_name)
-            num_brackets = sorted_df['Bracket'].max()
-            print('Number of brackets:', num_brackets)
-            return sorted_df, num_brackets
-            # return sorted_df
-        elif ' ' in first_line:
-            seps = ' '
-            df = pd.read_csv(filename, sep=seps)
-            df['Instrument'] = [inst_name] * len(df)
-            sorted_df = brackets(df, inst_name)
-            num_brackets = sorted_df['Bracket'].max()
-            print('Number of brackets:', num_brackets)
-            return sorted_df, num_brackets
-            # return sorted_df
-        else:
-            if verbose:
-                print("Unknown or no delimiter detected.")
-            return None
+        return sorted_df, num_brackets
+
+
     if filename.endswith('.oifits') or filename.endswith('.fits'):
         df = oifits_to_pandas(filename, inst_name)
         num_brackets = df['Bracket'].max()
