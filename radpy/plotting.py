@@ -193,7 +193,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='blue', label=model_label)
             if eq_text:
                 eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~[mas]$"
-                a0.text(0.1,0.1, eq1, transform = a0.transAxes, {'color': 'k', 'fontsize': 15})
+                a0.text(0.1,0.1, eq1, transform = a0.transAxes, color = 'black', fontsize = 15)
         else:
             print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
 
@@ -205,7 +205,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             a0.plot(line_spf, UDV2(line_spf, theta), '--', color='blue', label=model_label)
             if eq_text:
                 eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~[mas]$"
-                a0.text(0.1,0.1, eq1, transform = a0.transAxes, {'color': 'k', 'fontsize': 15})
+                a0.text(0.1,0.1, eq1, transform = a0.transAxes, color = 'black', fontsize = 15)
         else:
             print(f"Warning: udtheta not present for star, skipping model plot.")
 
