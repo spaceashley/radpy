@@ -188,7 +188,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
         if is_binned:
             # Plot unbinned points, no label
             a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, linestyle='None', linewidth=0.5, color=color,
+            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color,
                         capsize=3, alpha=alpha)
             # Plot binned points, with label
             binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
@@ -198,7 +198,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
         else:
             # Plot unbinned points, with label
             a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha, label=label)
-            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, linestyle='None', linewidth=0.5, color=color,
+            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color,
                         capsize=3, alpha=alpha)
     # --- Model ---
     if plot_ldmodel:
@@ -250,7 +250,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             model_v2 = V2(spf, theta, ldc_value)
             residuals = np.array(data.V2) - model_v2
             a1.plot(spf, residuals, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a1.errorbar(spf, residuals, yerr=data.dV2, fmt=marker, linestyle='None', linewidth=0.5, color=color,
+            a1.errorbar(spf, residuals, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color,
                         capsize=3, alpha=alpha)
 
             # --- Model and Residuals for Binned ---
@@ -266,7 +266,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             model_udv2 = UDV2(spf, theta)
             ud_res = np.array(data.V2) - model_udv2
             a1.plot(spf, ud_res, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a1.errorbar(spf, ud_res, yerr=data.dV2, fmt=marker, linestyle='None', linewidth=0.5, color=color, capsize=5,
+            a1.errorbar(spf, ud_res, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color, capsize=5,
                         alpha=alpha)
 
             if is_binned:
