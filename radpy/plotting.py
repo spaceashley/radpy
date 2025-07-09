@@ -165,12 +165,12 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
         'spica': r'$\rm SPICA$'
     }
     alpha_map = {
-        'pavo': 0.15,
-        'classic': 0.5,
-        'vega': 0.5,
-        'mircx': 0.5,
-        'mystic': 0.5,
-        'spica': 0.5
+        'pavo': 0.25,
+        'classic': 0.25,
+        'vega': 0.25,
+        'mircx': 0.25,
+        'mystic': 0.25,
+        'spica': 0.25
     }
 
     # --- Top: V2 ---
