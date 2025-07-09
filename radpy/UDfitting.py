@@ -210,7 +210,7 @@ def udfit(df, stellar_params, verbose=False):
     return theta_ud
 
 
-def run_udmcbs_fit(mc_num, bs_num, datasets, stellar_params, verbose=False):
+def run_UDfit(mc_num, bs_num, datasets, stellar_params, verbose=False):
     ######################################################################
     # Function: run_udmcbs_fit                                           #
     # Inputs: mc_num -> number of Monte Carlo iterations                 #
