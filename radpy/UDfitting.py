@@ -305,6 +305,6 @@ def udfit_values(x, y, dy, UD, stellar_params, verbose=False):
     stellar_params.update(teff=round(teff_ud[0],5), teff_err=round(teff_ud[1],5), udtheta=round(avg_UD,5), udtheta_err=round(std_UD,5))
     if verbose:
         print('Uniform Disk Diameter after MC/BS:', round(avg_UD, 4), '+/-', round(std_UD, 5), 'mas')
-        print("Chi-squared:", chisq)
-        print("Chi-squared reduced:", chisqr)
+        print("Chi-squared:", round(chisq, 3))
+        print("Chi-squared reduced:", round(chisqr,3))
         print("Temperature:", round(teff_ud[0], 1), "+/-", round(teff_ud[1], 1), "K")

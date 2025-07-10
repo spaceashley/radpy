@@ -107,8 +107,8 @@ def initial_LDfit(spf, v2, dv2, star_params, filt, verbose=False):
 
     star_params.update(ldthetai=round(ldtheta_ilm,5), ldthetai_err = round(lddtheta_ilm,5), teff=round(t,5), teff_err=round(dt,5))
     if verbose:
-        print("Effective temperature:", t, "+/-", dt, "K")
-        print("LDC for filter ", filt, ":", ldc)
+        print("Effective temperature:", round(t,5), "+/-", round(dt,5), "K")
+        print("LDC for filter ", filt, ":", round(ldc,5))
         print('Initial fit with lmfit:')
         print(ld_result.fit_report())
 
