@@ -2,7 +2,7 @@
 rsadpy/radpy/data/ClassicData.csv
 rsadpy/radpy/data/PAVOdata.csv
 rsadpy/radpy/data/Vegadata.csv
-
+rsadpy/radpy/tests/Diams
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
