@@ -36,9 +36,16 @@ def extract_instrument_from_filename(filename):
             return key
     return "UNKNOWN"
 
-def save_plot(fig, out_dir, star_id, plot_type):
+def save_plot(fig, out_dir, star_id, plot_type, extension):
     os.makedirs(out_dir, exist_ok=True)
-    fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.png"))
+    if extension == '.png':
+        fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.png"), bbox_inches = 'tight', dpi = 200)
+    if extension == '.jpg':
+        fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.jpg"), bbox_inches='tight', dpi = 200)
+    if extension == '.eps':
+        fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.eps"), bbox_inches='tight', dpi = 200)
+    if extension == '.pdf':
+        fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.pdf"), bbox_inches='tight', dpi = 200)
 
 def write_latex_table(df, out_file):
     with open(out_file, "w") as f:
@@ -106,7 +113,8 @@ def data_dict_plotting(wrapped_data):
     return data_dict
 
 
-def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, verbose=False):
+def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
+                 image_ext=None, binned=None, ldc_band=None, verbose=True):
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
     print(f"Starting processing for {star_name}")
@@ -136,7 +144,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
             dataframes[inst] = pd.concat(dfs, ignore_index=True)
 
     # Convert to InterferometryData objects and wrap into instrument classes
-    wrap_data = converttoIDobj(dataframes)
+    wrap_data = converttoIDobj(dataframes, verbose=False)
 
     # Combine all available data using RADPy's combined() utility
     combined_args = [obj.make_df() for obj in wrap_data.values()]
@@ -165,12 +173,11 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     # Monte Carlo uniform-disk fit
     datasets = list(wrap_data.values())
-    results_UD = run_UDfit(2, 2, datasets=datasets, stellar_params=star)
+    results_UD = run_UDfit(bs_num, mc_num, datasets=datasets, stellar_params=star)
     udfit_values(spf, v2, dv2, results_UD, stellar_params=star, verbose=verbose)
 
     # Monte Carlo limb-darkened fit
-    run_LDfit(2, 2, ogdata=[spf, v2, dv2], datasets=datasets,
-                                                       stellar_params=star, verbose=verbose)
+    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2], datasets=datasets, stellar_params=star, verbose=verbose)
 
     # Calculate additional stellar parameters
     calc_star_params(star, verbose=verbose)
@@ -180,32 +187,35 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     os.makedirs(plot_dir, exist_ok=True)
 
     data_dict = data_dict_plotting(wrap_data)
+    if binned:
+        bin_only = [k for k in binned if k in data_dict]
+
     # Uniform disk plot
     fig1, _ = plot_v2_fit(
         data_dict=data_dict,
         star=star,
         datasets_to_plot=list(data_dict.keys()),
-        to_bin=['pavo'] if 'pavo' in data_dict else [],
+        to_bin=bin_only,
         plot_udmodel=True,
         eq_text=True,
         title=f"{star_name}",
         show=False
     )
-    save_plot(fig1, plot_dir, star_id, "UDfit")
+    save_plot(fig1, plot_dir, star_id, "UDfit", image_ext)
 
     # Limb-darkened R band plot
     fig2, _ = plot_v2_fit(
         data_dict=data_dict,
         star=star,
         datasets_to_plot=list(data_dict.keys()),
-        to_bin=['pavo'] if 'pavo' in data_dict else [],
+        to_bin=bin_only,
         plot_ldmodel=True,
-        ldc_band='ldc_R',
+        ldc_band=ldc_band,
         title=f"{star_name}",
         eq_text=True,
         show=False
     )
-    save_plot(fig2, plot_dir, star_id, "LDfit_R")
+    save_plot(fig2, plot_dir, star_id, "LDfit", image_ext)
 
     # Collect results for LaTeX
     latex_rows.append({
