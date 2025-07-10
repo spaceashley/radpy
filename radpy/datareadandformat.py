@@ -45,7 +45,7 @@ def oifits_to_pandas(filename, inst_name):
     return df_exploded
 
 
-def filename_extension(filename, inst_name, verbose=False):
+def filename_extension(filename, inst_name, verbose=False, debug = False):
     #########################################################################
     # Function: filename_extension                                          #
     # Inputs: filename -> name of data file                                 #
@@ -81,7 +81,7 @@ def filename_extension(filename, inst_name, verbose=False):
         print('Number of brackets:', num_brackets)
         return sorted_df, num_brackets
         # return sorted_df
-    if filename.endswith('.txt'):
+    elif filename.endswith('.txt'):
         header = None
         data_start = 0
         with open(filename, 'r') as f:
@@ -91,7 +91,7 @@ def filename_extension(filename, inst_name, verbose=False):
                 # Remove '#' and newline, then split by pipe (or whatever header delimiter you expect)
                 header = [col.strip() for col in line.strip()[1:].split('|')]
                 data_start = i + 1
-                if verbose:
+                if debug:
                     print(f"Header detected: {header}")
                 break
 
@@ -113,13 +113,43 @@ def filename_extension(filename, inst_name, verbose=False):
         return sorted_df, num_brackets
 
 
-    if filename.endswith('.oifits') or filename.endswith('.fits'):
+    elif filename.endswith('.oifits') or filename.endswith('.fits'):
         df = oifits_to_pandas(filename, inst_name)
         num_brackets = df['Bracket'].max()
         print('Number of brackets:', num_brackets)
         return df, num_brackets
         # return df
 
+    else:
+        header = None
+        data_start = 0
+        with open(filename, "r") as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if line.strip().startswith('#'):
+                # Remove '#' and newline, then split by pipe (or whatever header delimiter you expect)
+                header = [col.strip() for col in line.strip()[1:].split('|')]
+                data_start = i + 1
+            if debug:
+                print(f"Header detected: {header}")
+            break
+
+        # Read the data lines (skip header and comments)
+        # Drop empty lines and comments
+        data_lines = [l for l in lines[data_start:] if l.strip() and not l.strip().startswith('#')]
+
+        # Save to a temp string buffer for pandas
+        from io import StringIO
+        data_str = ''.join(data_lines)
+        df = pd.read_csv(StringIO(data_str), sep=r'\s+', header=None, engine='python')
+        if header and len(header) == df.shape[1]:
+            df.columns = header
+        df['Instrument'] = [inst_name] * len(df)
+        sorted_df = brackets(df, inst_name)
+        num_brackets = sorted_df['Bracket'].max()
+        if verbose:
+            print('Number of brackets:', num_brackets)
+        return sorted_df, num_brackets
 
 def brackets(df, instrument):
     # bracket generator
@@ -283,6 +313,23 @@ class VegaData(InterferometryData):
 
 
 class MircxData(InterferometryData):
+    def __init__(self, df):
+        super().__init__(df, instrument_code='m')
+
+    def process(self):
+        df = self.raw.dropna(subset=['V2', 'V2_err'])  # clean NaNs
+        self.cleaned = df
+
+        ucoord = df['UCOORD[m]']
+        vcoord = df['VCOORD[m]']
+        self.B = np.sqrt((ucoord ** 2) + (vcoord ** 2))
+        self.V2 = df['V2']
+        self.dV2 = df['V2_err']
+        self.Wave = df['Eff_wave[m]']
+        self.Band = df['Eff_band[m]']
+        self.Bracket = df['Bracket']
+
+class MysticData(InterferometryData):
     def __init__(self, df):
         super().__init__(df, instrument_code='m')
 

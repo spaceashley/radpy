@@ -63,9 +63,9 @@ def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
     return np.array(avg_x), np.array(avg_y), np.array(avg_dy)
 
 ##########################################################################################
-def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=False,
+def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 datasets_to_plot=None, plot_ldmodel=False, plot_udmodel=False,
-                to_bin=None, savefig=None, show=True):
+                to_bin=None, title=None, savefig=None, show=True):
     ###########################################################################
     # Function: plot_v2_fit                                                   #
     # Inputs: data_dict -> dict of InterferometryData objects,                #
@@ -73,7 +73,6 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
     #         star-> star object with .theta and .ldc* attributes             #
     #                (ldcR, ldcK, etc.), and .V2(line_spf, theta, ldc)        #
     #         line_spf -> x values for model curve                            #
-    #         set_axis -> set the axis limits e.g. [xmin, xmax, ymin, ymax]   #
     #         ldc_band -> string (e.g. "ldcR", "ldcK") for which LDC          #
     #                     coefficient to use                                  #
     #         eq_text -> optional string for annotation                       #
@@ -82,7 +81,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
     #         plot_ldmodel-> bool, whether to plot the ld model curve         #
     #         plot_udmodel -> bool, whether to plot the ud model curve        #
     #         to_bin -> list of kets in data_dict to bin                      #
-    #         interact -> sets matplotlib ipympl, default is False            #
+    #         title -> allows user to set a plot title                        #
     #         savefig-> filename to save, if desired                          #
     #         show-> whether to plt.show()                                    #
     # Outputs: the plot                                                       #
@@ -142,7 +141,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
     }
     binned_color_map = {
         'pavo': '#030aa7',
-        'classic': '#000000' ,
+        'classic': '#000000',
         'vega': '#028f1e',
         'mircx': '#7e1e9c',
         'mystic': '#ff028d',
@@ -173,6 +172,15 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
         'spica': 0.25
     }
 
+    if line_spf is None:
+        all_spf = []
+        for key in datasets_to_plot:
+            data = data_dict[key]
+            spf = np.array(data.B) / np.array(data.Wave)
+            all_spf.extend(spf)
+        all_spf = np.array(all_spf)
+        max_spf = np.max(all_spf)
+        line_spf = np.linspace(0.00001, max_spf * 1.1, 1000)  # slight padding
     # --- Top: V2 ---
     for key in datasets_to_plot:
         data = data_dict[key]
@@ -188,17 +196,20 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
         if is_binned:
             # Plot unbinned points, no label
             a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color,
+            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+                        color=color,
                         capsize=3, alpha=alpha)
             # Plot binned points, with label
             binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
             a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=7, color=bin_color, label=label)
-            a0.errorbar(binned_spf, binned_v2, yerr=binned_dv2, fmt=marker, linestyle='None', markersize=7, color=bin_color,
+            a0.errorbar(binned_spf, binned_v2, yerr=binned_dv2, fmt=marker, linestyle='None', markersize=7,
+                        color=bin_color,
                         capsize=3)
         else:
             # Plot unbinned points, with label
             a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha, label=label)
-            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color,
+            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+                        color=color,
                         capsize=3, alpha=alpha)
     # --- Model ---
     if plot_ldmodel:
@@ -210,7 +221,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
             if eq_text:
                 eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~[mas]$"
-                a0.text(0.1,0.1, eq1, transform = a0.transAxes, color = 'black', fontsize = 15)
+                a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
         else:
             print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
 
@@ -222,15 +233,14 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
             if eq_text:
                 eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~[mas]$"
-                a0.text(0.1,0.1, eq1, transform = a0.transAxes, color = 'black', fontsize = 15)
+                a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
         else:
             print(f"Warning: udtheta not present for star, skipping model plot.")
 
     a0.legend(fontsize=12)
     a0.set_ylabel(r'$V^2$', labelpad=17)
     a0.tick_params(axis='x', labelbottom=False)
-    a0.axis(set_axis)
-
+    # a0.axis(set_axis)
     a0.xaxis.set_minor_locator(AutoMinorLocator())
     a0.yaxis.set_minor_locator(AutoMinorLocator())
 
@@ -250,7 +260,8 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             model_v2 = V2(spf, theta, ldc_value)
             residuals = np.array(data.V2) - model_v2
             a1.plot(spf, residuals, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a1.errorbar(spf, residuals, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color,
+            a1.errorbar(spf, residuals, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+                        color=color,
                         capsize=3, alpha=alpha)
 
             # --- Model and Residuals for Binned ---
@@ -266,7 +277,8 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
             model_udv2 = UDV2(spf, theta)
             ud_res = np.array(data.V2) - model_udv2
             a1.plot(spf, ud_res, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a1.errorbar(spf, ud_res, yerr=data.dV2, fmt=marker, markersize = 3, linestyle='None', linewidth=0.5, color=color, capsize=5,
+            a1.errorbar(spf, ud_res, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+                        color=color, capsize=5,
                         alpha=alpha)
 
             if is_binned:
@@ -276,7 +288,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
                 a1.errorbar(binned_spf, binned_udres, yerr=binned_dv2, fmt=marker, linestyle='None', markersize=7,
                             color=bin_color, capsize=3)
 
-    a1.axhline(y=0, color='black',linestyle = '--')
+    a1.axhline(y=0, color='black', linestyle='--')
     a1.set_ylabel(r'$\rm Residual$', labelpad=3)
     plt.yticks([-.25, 0, 0.25])
     a1.set_ylim([-0.35, 0.35])
@@ -285,7 +297,7 @@ def plot_v2_fit(data_dict, star, line_spf, set_axis, ldc_band=None, eq_text=Fals
 
     plt.subplots_adjust(wspace=0, hspace=0)
     plt.xlabel(r'$\rm Spatial$ $\rm frequency$ [$\rm rad^{-1}$]')
-
+    a0.set_title(rf'$\rm {title}$')
     if savefig:
         f.savefig(savefig, bbox_inches='tight')
     if show:
