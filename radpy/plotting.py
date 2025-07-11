@@ -65,7 +65,7 @@ def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
 ##########################################################################################
 def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 datasets_to_plot=None, plot_ldmodel=False, plot_udmodel=False,
-                to_bin=None, title=None, savefig=None, show=True):
+                to_bin=None, title=None, set_axis = None, savefig=None, show=True):
     ###########################################################################
     # Function: plot_v2_fit                                                   #
     # Inputs: data_dict -> dict of InterferometryData objects,                #
@@ -196,19 +196,19 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         if is_binned:
             # Plot unbinned points, no label
             a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+            a0.errorbar(spf, data.V2, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
                         color=color,
                         capsize=3, alpha=alpha)
             # Plot binned points, with label
             binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
             a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=7, color=bin_color, label=label)
-            a0.errorbar(binned_spf, binned_v2, yerr=binned_dv2, fmt=marker, linestyle='None', markersize=7,
+            a0.errorbar(binned_spf, binned_v2, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=7,
                         color=bin_color,
                         capsize=3)
         else:
             # Plot unbinned points, with label
             a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha, label=label)
-            a0.errorbar(spf, data.V2, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+            a0.errorbar(spf, data.V2, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
                         color=color,
                         capsize=3, alpha=alpha)
     # --- Model ---
@@ -240,9 +240,15 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     a0.legend(fontsize=12)
     a0.set_ylabel(r'$V^2$', labelpad=17)
     a0.tick_params(axis='x', labelbottom=False)
-    # a0.axis(set_axis)
     a0.xaxis.set_minor_locator(AutoMinorLocator())
     a0.yaxis.set_minor_locator(AutoMinorLocator())
+    if set_axis:
+        xmin = set_axis[0]
+        xmax = set_axis[1]
+        ymin = set_axis[2]
+        ymax = set_axis[3]
+        a0.set_xlim(xmin, xmax)
+        a0.set_ylim(ymin, ymax)
 
     # --- Bottom panel: Residuals ---
     for key in datasets_to_plot:
@@ -260,7 +266,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
             model_v2 = V2(spf, theta, ldc_value)
             residuals = np.array(data.V2) - model_v2
             a1.plot(spf, residuals, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a1.errorbar(spf, residuals, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+            a1.errorbar(spf, residuals, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
                         color=color,
                         capsize=3, alpha=alpha)
 
@@ -269,7 +275,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 model_binv2 = V2(binned_spf, theta, ldc_value)
                 binned_res = binned_v2 - model_binv2
                 a1.plot(binned_spf, binned_res, linestyle='None', marker=marker, markersize=7, color=bin_color)
-                a1.errorbar(binned_spf, binned_res, yerr=binned_dv2, fmt=marker, linestyle='None', markersize=7,
+                a1.errorbar(binned_spf, binned_res, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=7,
                             color=bin_color, capsize=3)
 
         # --- (Repeat similar for UD model if desired) ---
@@ -277,7 +283,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
             model_udv2 = UDV2(spf, theta)
             ud_res = np.array(data.V2) - model_udv2
             a1.plot(spf, ud_res, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a1.errorbar(spf, ud_res, yerr=data.dV2, fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+            a1.errorbar(spf, ud_res, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
                         color=color, capsize=5,
                         alpha=alpha)
 
@@ -285,7 +291,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 model_binudv2 = UDV2(binned_spf, theta)
                 binned_udres = binned_v2 - model_binudv2
                 a1.plot(binned_spf, binned_udres, linestyle='None', marker=marker, markersize=7, color=bin_color)
-                a1.errorbar(binned_spf, binned_udres, yerr=binned_dv2, fmt=marker, linestyle='None', markersize=7,
+                a1.errorbar(binned_spf, binned_udres, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=7,
                             color=bin_color, capsize=3)
 
     a1.axhline(y=0, color='black', linestyle='--')
@@ -298,6 +304,8 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     plt.subplots_adjust(wspace=0, hspace=0)
     plt.xlabel(r'$\rm Spatial$ $\rm frequency$ [$\rm rad^{-1}$]')
     a0.set_title(rf'$\rm {title}$')
+
+
     if savefig:
         f.savefig(savefig, bbox_inches='tight')
     if show:

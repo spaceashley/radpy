@@ -114,7 +114,7 @@ def data_dict_plotting(wrapped_data):
 
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
-                 image_ext=None, binned=None, ldc_band=None, verbose=True):
+                 set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
     print(f"Starting processing for {star_name}")
@@ -198,6 +198,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         to_bin=bin_only,
         plot_udmodel=True,
         eq_text=True,
+        set_axis = set_axis,
         title=f"{star_name}",
         show=False
     )
@@ -212,6 +213,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         plot_ldmodel=True,
         ldc_band=ldc_band,
         title=f"{star_name}",
+        set_axis = set_axis,
         eq_text=True,
         show=False
     )
@@ -239,13 +241,13 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     })
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, image_ext=None, binned=None, ldc_band=None, verbose=True):
+def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
     os.chdir(data_dir)
     star_names, star_params = get_stellar_params(star_file)
     latex_rows = []
     count = 0
     for star_name in star_names:
-        process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num,
+        process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num, set_axis = set_axis,
                      image_ext=image_ext, binned=binned, ldc_band=ldc_band, verbose=verbose)
         count += 1
 
