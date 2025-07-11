@@ -51,9 +51,11 @@ For limb-darkened disk diameters, `RADPy` follows a similar structure to the uni
 
 This tutorial is designed to show the general steps of how a user should implement `RADPy` for your own angular diameter fitting needs for single stars. This notebook will go over how to install, how to import the necessary modules from `RADPy`, how to read in your data, how to perform initial fits, how to run the Monte Carlo simulations, how to calculate the remaining stellar parameters, and how to generate publicaiton ready plots. This tutorial is useful for those that want to step through every part of `RADPy` and see the outputs of each step. 
 
-## Usage
+## How to Cite
 
-If you do use this package, please use the following citation:
+If you use `RADPy` in your research, please cite it as:
+
+Elliott, Ashley (2025). *RADPy: Robust Angular Diameters in Python*. Version 0.3.9. Available on PyPI: https://pypi.org/project/rsadpy. Source code: https://github.com/spaceashley/radpy
 
 ## Contact
 - Ashley Elliott (aelli76@lsu.edu)
