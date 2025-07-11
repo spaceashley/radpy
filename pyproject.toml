@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rsadpy"
-version = "0.3.6"
+version = "0.3.7"
 description = "Robust Angular Diameters in Python: an angular diameter fitting routine for multi-wavelength interferometric data"
 authors = ["Ashley Elliott <elliottashleya99@gmail.com>"]
 license = "GPL-3.0"
