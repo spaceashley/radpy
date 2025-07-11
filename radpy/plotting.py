@@ -181,6 +181,16 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         all_spf = np.array(all_spf)
         max_spf = np.max(all_spf)
         line_spf = np.linspace(0.00001, max_spf * 1.1, 1000)  # slight padding
+
+    if set_axis and line_spf is None:
+        xmin = set_axis[0]
+        xmax = set_axis[1]
+        ymin = set_axis[2]
+        ymax = set_axis[3]
+        a0.set_xlim(xmin, xmax)
+        a0.set_ylim(ymin, ymax)
+        line_spf = np.linspace(0.00001, xmax, 1000)
+
     # --- Top: V2 ---
     for key in datasets_to_plot:
         data = data_dict[key]
@@ -242,13 +252,6 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     a0.tick_params(axis='x', labelbottom=False)
     a0.xaxis.set_minor_locator(AutoMinorLocator())
     a0.yaxis.set_minor_locator(AutoMinorLocator())
-    if set_axis:
-        xmin = set_axis[0]
-        xmax = set_axis[1]
-        ymin = set_axis[2]
-        ymax = set_axis[3]
-        a0.set_xlim(xmin, xmax)
-        a0.set_ylim(ymin, ymax)
 
     # --- Bottom panel: Residuals ---
     for key in datasets_to_plot:
