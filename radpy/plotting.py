@@ -172,16 +172,6 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'spica': 0.25
     }
 
-    if line_spf is None:
-        all_spf = []
-        for key in datasets_to_plot:
-            data = data_dict[key]
-            spf = np.array(data.B) / np.array(data.Wave)
-            all_spf.extend(spf)
-        all_spf = np.array(all_spf)
-        max_spf = np.max(all_spf)
-        line_spf = np.linspace(0.00001, max_spf * 1.1, 1000)  # slight padding
-
     if set_axis and line_spf is None:
         xmin = set_axis[0]
         xmax = set_axis[1]
@@ -190,6 +180,15 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         a0.set_xlim(xmin, xmax)
         a0.set_ylim(ymin, ymax)
         line_spf = np.linspace(0.00001, xmax, 1000)
+    else:
+        all_spf = []
+        for key in datasets_to_plot:
+            data = data_dict[key]
+            spf = np.array(data.B) / np.array(data.Wave)
+            all_spf.extend(spf)
+        all_spf = np.array(all_spf)
+        max_spf = np.max(all_spf)
+        line_spf = np.linspace(0.00001, max_spf * 1.1, 1000)  # slight padding
 
     # --- Top: V2 ---
     for key in datasets_to_plot:
