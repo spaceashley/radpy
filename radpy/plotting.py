@@ -81,6 +81,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     #         plot_ldmodel-> bool, whether to plot the ld model curve         #
     #         plot_udmodel -> bool, whether to plot the ud model curve        #
     #         to_bin -> list of kets in data_dict to bin                      #
+    #         set_axis -> sets the axis limits                                #
     #         title -> allows user to set a plot title                        #
     #         savefig-> filename to save, if desired                          #
     #         show-> whether to plt.show()                                    #
@@ -90,38 +91,43 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     #        2. Checks to see what datasets the user wants plotted            #
     #        3. Defines dictionaries for each instrument and the marker,      #
     #           color, label, and alpha value for each one                    #
+    #        4. Checks to see if set_axis has been assigned. If it has,       #
+    #           sets the axis limits and adjusts line_spf accordingly. If     #
+    #           not, sets line_spf to be max(spf) with padding                #
     #        Starts with the top plot                                         #
-    #        4. for each data set, sets the keys for the color, marker, label #
+    #        5. For each data set, sets the keys for the color, marker, label #
     #           and alpha value                                               #
-    #        5. Checks to see if the to_bin has been set                      #
-    #        6. if to_bin has been set, plots the unbinned data for each      #
+    #        6. Checks to see if the to_bin has been set                      #
+    #        7. if to_bin has been set, plots the unbinned data for each      #
     #           data set, and then bins the data sets indicated then plots    #
     #           those                                                         #
-    #        7. If to_bin has not been set, it plots the unbinned data        #
-    #        8. For the model, if plot_ldmodel is set, pulls the ldtheta,     #
+    #        8. If to_bin has not been set, it plots the unbinned data        #
+    #        9. For the model, if plot_ldmodel is set, pulls the ldtheta,     #
     #           error on the theta, and the ldcs and calculates the fits for  #
     #           the relevant filter                                           #
-    #        9. Plots the model for the filter indicated                      #
-    #       10. If eq_text is set, annotates the plot with the theta val      #
-    #       11. If plot_udmodel is set, pulls the udtheta and error, and      #
+    #       10. Plots the model for the filter indicated                      #
+    #       11. If eq_text is set, annotates the plot with the theta val      #
+    #       12. If plot_udmodel is set, pulls the udtheta and error, and      #
     #           calculates the UD model and plots it                          #
-    #       12. If eq_text is set, annotates the plot the theta val           #
+    #       13. If eq_text is set, annotates the plot the theta val           #
+    #       14. Checks to see how many datasets are being plotted. If more    #
+    #           than 1, sets the legend. If not, does not plot legend.        #
     #       Bottom plot:                                                      #
-    #       13. For each data set, it pulls the respective keys for the       #
+    #       15. For each data set, it pulls the respective keys for the       #
     #           color, label, alpha, and marker for each instrument           #
-    #       14. For each data set, checks to see if the to_bin value has been #
+    #       16. For each data set, checks to see if the to_bin value has been #
     #           set.                                                          #
-    #       15. If plot_ldmodel has been set, it calculates the residuals for #
+    #       17. If plot_ldmodel has been set, it calculates the residuals for #
     #           the data and the model for the filter indicated.              #
-    #       16. If to_bin has been set, it calculates the residuals for the   #
+    #       18. If to_bin has been set, it calculates the residuals for the   #
     #           binned data as well.                                          #
-    #       17. If plot_udmodel has been set, it calculates the residuals for #
+    #       19. If plot_udmodel has been set, it calculates the residuals for #
     #           the data and the ud model.                                    #
-    #       18. If to_bin has been set, it calcualtes the residuals for the   #
+    #       20. If to_bin has been set, it calcualtes the residuals for the   #
     #           binned data as well.                                          #
-    #       19. Plots the residuals for the unbinned (and binned if set)      #
-    #       20. Saves fig if save_fig has been set                            #
-    #       21. Shows fig if show has been set.                               #
+    #       21. Plots the residuals for the unbinned (and binned if set)      #
+    #       22. Saves fig if save_fig has been set                            #
+    #       23. Shows fig if show has been set.                               #
     ###########################################################################
     plt.rcParams.update({'font.size': 18})
     plt.rcParams['xtick.direction'] = 'in'
@@ -308,8 +314,6 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
 
     plt.subplots_adjust(wspace=0, hspace=0)
     plt.xlabel(r'$\rm Spatial$ $\rm frequency$ [$\rm rad^{-1}$]')
-
-
 
     if savefig:
         f.savefig(savefig, bbox_inches='tight')

@@ -1,6 +1,5 @@
 import re
 import os
-import pandas as pd
 from radpy.stellar import *
 from radpy.datareadandformat import *
 from radpy.plotting import plot_v2_fit
@@ -8,11 +7,41 @@ from radpy.LDfitting import initial_LDfit, run_LDfit
 from radpy.UDfitting import initial_UDfit, run_UDfit, udfit_values
 
 def extract_id(star_name):
+    #############################################
+    # Function: extract_id                      #
+    # Inputs: star_name -> name of the star     #
+    # Outputs: just the numbers of the star ID  #
+    # What it does:                             #
+    #     1. Takes in the star name             #
+    #     2. Searches the string for one or     #
+    #        more digits.                       #
+    #     3. If it found some, returns the      #
+    #        exact sequence of digits.          #
+    #     4. If none are found, returns None    #
+    #############################################
     match = re.search(r'\d+', star_name)
     return match.group(0) if match else None
 
 
 def find_files_for_star(star_id, data_dir):
+    ####################################################
+    # Function: find_files_for_star                    #
+    # Inputs: star_id -> star id numbers               #
+    #         data_dir -> data directory               #
+    # Outputs: matches -> list of files matching to    #
+    #                     the star ID                  #
+    # What it does:                                    #
+    #      1. sets the ignore extension variable for   #
+    #         any image extension                      #
+    #      2. loops through the files in the data      #
+    #         directory                                #
+    #      3. Searches for the star id in the file     #
+    #         name.                                    #
+    #      4. Checks the file extension on each file   #
+    #      5. If file is not in the ignore list,       #
+    #         appends file to the matches list         #
+    #      6. Returns the file list                    #
+    ####################################################
     ignore_ext = {'.jpg', '.jpeg', '.png', '.pdf', '.eps', '.gif', '.tif', '.tiff', '.bmp'}
     matches = []
     for root, dirs, files in os.walk(data_dir):
@@ -24,6 +53,18 @@ def find_files_for_star(star_id, data_dir):
     return matches
 
 def extract_instrument_from_filename(filename):
+    ####################################################
+    # Function: extract_instrument_from_filename       #
+    # Inputs: filename -> filename                     #
+    # Outputs: key -> instrument key                   #
+    # What it does:                                    #
+    #      1. Creates instrument dictionary with keys  #
+    #      2. Pulls instrument name from file name     #
+    #      3. Checks for filename and matches the key  #
+    #      4. As a fall back, returns the first letter #
+    #         of the filename                          #
+    #      5. If not found, returns "UNKNOWN"          #
+    ####################################################
     instruments = {'C': 'classic', 'P': 'pavo', 'V': 'vega', 'M': 'mircx', 'MY': 'mystic', 'S': 'spica'}
     name = os.path.basename(filename).upper()
     # Try to detect instrument by filename
@@ -40,6 +81,20 @@ def extract_instrument_from_filename(filename):
     return "UNKNOWN"
 
 def save_plot(fig, out_dir, star_id, plot_type, extension):
+    ##########################################################
+    # Function: save_plot                                    #
+    # Inputs: fig -> the figure                              #
+    #         out_dir -> output directory                    #
+    #         star_id -> name of star                        #
+    #         plot_type -> type of model being plotted       #
+    #         extension -> type of file extension            #
+    # Outputs: saves figure                                  #
+    # What it does:                                          #
+    #      1. Checks to see if output directory has been     #
+    #         made. If not, creates it.                      #
+    #      2. Based on file extension, saves figure to       #
+    #         output directory                               #
+    ##########################################################
     os.makedirs(out_dir, exist_ok=True)
     if extension == '.png':
         fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.png"), bbox_inches = 'tight', dpi = 200)
@@ -51,15 +106,33 @@ def save_plot(fig, out_dir, star_id, plot_type, extension):
         fig.savefig(os.path.join(out_dir, f"{star_id}_{plot_type}.pdf"), bbox_inches='tight', dpi = 200)
 
 def write_latex_table(df, out_file):
+    #####################################################
+    # Function: write_latex_table                       #
+    # Inputs: df -> dataframe to write to table         #
+    #         out_file -> output tex file               #
+    # Outputs: writes to a latex file                   #
+    # What it does:                                     #
+    #       1. Opens the out_file                       #
+    #       2. Writes to the file                       #
+    #####################################################
     with open(out_file, "w") as f:
         f.write(df.to_latex(index=False, float_format="%.4f"))
 
-def get_stellar_params(csv_path):
-    """
-    Read stellar parameters for each star from a CSV with columns:
-    star_name, fbol, fbol_err, logg, logg_err, feh, feh_err
-    """
-    df = pd.read_csv(csv_path, sep='\t')
+def get_stellar_params(file_path):
+    ######################################################
+    # Function: get_stellar_params                       #
+    # Inputs: file_path -> path to file                  #
+    # Outputs: star_names -> names of the stars          #
+    #          star_params -> dictionary of stellar      #
+    #                         params                     #
+    # What it does:                                      #
+    #     1. reads in the file                           #
+    #     2. extracts the star names                     #
+    #     3. For each star name, extracts the stellar    #
+    #        parameters and adds it to the dictionary    #
+    #     4. Returns the star names and the dictionary   #
+    ######################################################
+    df = pd.read_csv(file_path, sep='\t')
     star_names = df['Star'].tolist()
     params_dict = {}
     for _, row in df.iterrows():
@@ -75,6 +148,18 @@ def get_stellar_params(csv_path):
 
 
 def converttoIDobj(dfs, verbose=False):
+    ####################################################
+    # Function: converttoIDobj                         #
+    # Inputs: dfs -> dictionaries                      #
+    # Outputs: wrapped_data -> instrument class        #
+    # What it does:                                    #
+    #        1. Creates instrument class map           #
+    #        2. Loops through the dictionaries and     #
+    #           sorts the files by instrument          #
+    #        3. Converts the data file to the instru-  #
+    #           ment class                             #
+    #        4. Returns the instrument class object    #
+    ####################################################
     # Allows for dynamic wrapping of the different instrument classes
     instrument_class_map = {
         "P": PavoData,
@@ -98,6 +183,16 @@ def converttoIDobj(dfs, verbose=False):
 
 
 def data_dict_plotting(wrapped_data):
+    #####################################################
+    # Function: data_dict_plotting                      #
+    # Inputs: wrapped_data -> Instrument Class object   #
+    # Outputs: data_dict -> data dictionary             #
+    # What it does:                                     #
+    #       1. Creates instrument map                   #
+    #       2. Creates data dictionary for each data    #
+    #          file                                     #
+    #       3. Returns dictionary                       #
+    #####################################################
     instrument_name_map = {
         "P": "pavo",
         "V": "vega",
@@ -106,7 +201,6 @@ def data_dict_plotting(wrapped_data):
         "My": "mystic",
         "S": "spica"
     }
-
     data_dict = {
         instrument_name_map[code]: data
         for code, data in wrapped_data.items()
@@ -116,22 +210,87 @@ def data_dict_plotting(wrapped_data):
     return data_dict
 
 def format_catalog_name(name):
-    # Step 1: Replace underscores with spaces
+    ########################################################
+    # Function: format_catalog_name                        #
+    # Inputs: name -> star name                            #
+    # Outputs: latex formatted name                        #
+    # What it does:                                        #
+    #       1. Checks to see if the name is already in     #
+    #          correct format                              #
+    #       2. Replaces the underscores in the name with   #
+    #          spaces if there are underscores             #
+    #       3. Inserts a space between the prefix and the  #
+    #          numbers only at the first transition        #
+    #       4. Replaces the spaces with '~'                #
+    #       5. Returns the latex formatted name            #
+    ########################################################
+
     if name.startswith('$\\rm') and name.endswith('$'):
         return name
     name = name.replace('_', ' ')
-    # Step 2: Insert a space between the prefix and the numbers—only at the first transition
     name = re.sub(r'^([A-Za-z+\-]+)\s*([0-9].*)', r'\1 \2', name)
-    # Step 3: Replace spaces with LaTeX non-breaking spaces
     return rf'$\rm {name.replace(" ", "~")}$'
 
 def convert_names_to_latex(names):
+    #####################################################
+    # Function: convert_names_to_latex                  #
+    # Inputs: names -> list of names                    #
+    # Outputs: names2 -> list of latex formatted names  #
+    # What it does:                                     #
+    #      1. For every name in the names list, formats #
+    #         the name with format_catalog_name()       #
+    #      2. Returns formatted names                   #
+    #####################################################
     names2 = [format_catalog_name(name) for name in names]
     return names2
 
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
                  set_axis=None, image_ext=None, binned=None, ldc_band=None, verbose=True):
+    ##################################################################
+    # Function: process_star                                         #
+    # Inputs: star_name -> name of star                              #
+    #         data_dir -> data directory                             #
+    #         output_dir -> output directory                         #
+    #         stellar_params_dict -> dictionary with stellar params  #
+    #         latex_rows -> for latex table                          #
+    #         mc_num -> number of Monte Carlo iterations             #
+    #                   defaults to 71                               #
+    #         bs_num -> number of bootstrap iterations               #
+    #                   defaults to 71                               #
+    #         set_axis -> axis limits [xmin, xmax, ymin, ymax]       #
+    #                     defaults to none                           #
+    #         image_ext -> image extension for file                  #
+    #                      Options: '.jpg', '.png', '.pdf', '.eps'   #
+    #         binned -> data you want binned i.e. ['pavo']           #
+    #         ldc_band -> limb darkening band you want               #
+    #                     Options: 'ldc_R', 'ldc_H', 'ldc_K', 'ldc_J'#
+    #         verbose -> allows print statements to screen           #
+    # Outputs: None                                                  #
+    # What it does:                                                  #
+    #      1. Extracts the star name                                 #
+    #      2. Finds the files for the star                           #
+    #      3. Groups the files by instrument.                        #
+    #      4. Process the files by instrument                        #
+    #      5. Combines the data files per instrument.                #
+    #      6. wraps the data into InterferometryData Objects         #
+    #      7. Combines all data into one dataframe                   #
+    #      8. Sets up the StellarParams object                       #
+    #      9. Calculates the distance                                #
+    #     10. Performs initial fits for uniform disk and limb-dark   #
+    #     11. Performs the UD MC fit                                 #
+    #     12. Calculates parameters after UD fit                     #
+    #     13. Performs the LD MC fit                                 #
+    #     14. Calculates final stellar parameters                    #
+    #     15. Sets up plot directory                                 #
+    #     16. If data are to be binned, creates a binned data dict   #
+    #     17. converts the star name into latex format               #
+    #     18. Plots the UD fit                                       #
+    #     19. Saves the plot                                         #
+    #     20. Plots the LD fit                                       #
+    #     21. Saves the plot                                         #
+    #     22. Appends the stellar parameters to the latex_rows       #
+    ##################################################################
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
     print(f"Starting processing for {star_name}")
@@ -263,6 +422,37 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     print(f"Finished processing {star_name}")
 
 def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
+    ######################################################
+    # Function: batch_mode                               #
+    # Inputs: star_file -> stellar param file            #
+    #         data_dir -> data directory                 #
+    #         output_dir -> output directory             #
+    #         latex_out -> name of latex file            #
+    #         mc_num -> number of MC iterations          #
+    #                   defaults to 71                   #
+    #         bs_num -> number of bootstrap iterations   #
+    #                   defaults to 71                   #
+    #         set_axis -> sets the axis limits           #
+    #                   defaults to None (automatically  #
+    #                   assigns)                         #
+    #         image_ext -> sets image extension          #
+    #         binned -> datasets you want binned         #
+    #         ldc_band -> limb-darkening coefficent you  #
+    #                     want plotted                   #
+    #         verbose -> allows print statements         #
+    # Outputs: None                                      #
+    # What it does:                                      #
+    #       1. Changes directory to the data directory   #
+    #       2. Extracts star names and stellar params    #
+    #       3. Assigns empty rows for latex_rows         #
+    #       4. Initializes count iterator                #
+    #       5. Loops through the star names and runs     #
+    #          process_star for each                     #
+    #       6. Updates loop counter                      #
+    #       7. Outside loop, creates a DataFrame of the  #
+    #          stellar parameters                        #
+    #       8. Writes the dataframe to a latex table     #
+    ######################################################
     os.chdir(data_dir)
     star_names, star_params = get_stellar_params(star_file)
     latex_rows = []
