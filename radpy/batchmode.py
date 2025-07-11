@@ -112,6 +112,18 @@ def data_dict_plotting(wrapped_data):
 
     return data_dict
 
+def format_catalog_name(name):
+    # Step 1: Replace underscores with spaces
+    name = name.replace('_', ' ')
+    # Step 2: Insert a space between the prefix and the numbers—only at the first transition
+    name = re.sub(r'^([A-Za-z+\-]+)\s*([0-9].*)', r'\1 \2', name)
+    # Step 3: Replace spaces with LaTeX non-breaking spaces
+    return rf'$\rm {name.replace(" ", "~")}$'
+
+def convert_names_to_latex(names):
+    names2 = [format_catalog_name(name) for name in names]
+    return names2
+
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
                  set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
@@ -190,6 +202,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     if binned:
         bin_only = [k for k in binned if k in data_dict]
 
+    star_title = convert_names_to_latex(star_name)
     # Uniform disk plot
     fig1, _ = plot_v2_fit(
         data_dict=data_dict,
@@ -199,7 +212,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         plot_udmodel=True,
         eq_text=True,
         set_axis = set_axis,
-        title=f"{star_name}",
+        title=fr"{star_title}",
         show=False
     )
     save_plot(fig1, plot_dir, star_id, "UDfit", image_ext)
@@ -212,7 +225,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         to_bin=bin_only,
         plot_ldmodel=True,
         ldc_band=ldc_band,
-        title=f"{star_name}",
+        title=fr"{star_title}",
         set_axis = set_axis,
         eq_text=True,
         show=False

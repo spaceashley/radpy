@@ -230,7 +230,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
             model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
             a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
             if eq_text:
-                eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~[mas]$"
+                eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~mas$"
                 a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
         else:
             print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
@@ -242,16 +242,19 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
             model_label = fr"$\rm Uniform~Disk~Model$"
             a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
             if eq_text:
-                eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~[mas]$"
+                eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~mas$"
                 a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
         else:
             print(f"Warning: udtheta not present for star, skipping model plot.")
 
-    a0.legend(fontsize=12)
+    if len(datasets_to_plot) > 1:
+        a0.legend(fontsize=12)
+
     a0.set_ylabel(r'$V^2$', labelpad=17)
     a0.tick_params(axis='x', labelbottom=False)
     a0.xaxis.set_minor_locator(AutoMinorLocator())
     a0.yaxis.set_minor_locator(AutoMinorLocator())
+    a0.set_title(rf'$\rm {title}$')
 
     # --- Bottom panel: Residuals ---
     for key in datasets_to_plot:
@@ -306,7 +309,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
 
     plt.subplots_adjust(wspace=0, hspace=0)
     plt.xlabel(r'$\rm Spatial$ $\rm frequency$ [$\rm rad^{-1}$]')
-    a0.set_title(rf'$\rm {title}$')
+
 
 
     if savefig:
