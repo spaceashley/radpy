@@ -238,3 +238,18 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         r"$\mu_{\rm J}$": star.ldc_J,
     })
     print(f"Finished processing {star_name}")
+
+    def batch_mode(star_file, data_dir, output_dir, mc_num=71, bs_num=71, image_ext=None, binned=None, ldc_band=None,
+                   verbose=True):
+        os.chdir(data_dir)
+        star_names, star_params = get_stellar_params(star_file)
+        latex_rows = []
+        count = 0
+        for star_name in star_names:
+            process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num,
+                         image_ext=image_ext, binned=binned, ldc_band=ldc_band, verbose=verbose)
+            count += 1
+
+        latex_df = pd.DataFrame(latex_rows)
+        write_latex_table(latex_df, latex_out)
+        print(f"Batch complete. Fit {count} stars. Plots in {os.path.join(outputdir, 'plots')}, results in {latex_out}")
