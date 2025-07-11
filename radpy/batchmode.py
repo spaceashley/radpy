@@ -43,13 +43,13 @@ def find_files_for_star(star_id, data_dir):
     #      6. Returns the file list                    #
     ####################################################
     ignore_ext = {'.jpg', '.jpeg', '.png', '.pdf', '.eps', '.gif', '.tif', '.tiff', '.bmp'}
+    pattern = re.compile(rf'_{star_id}\b')  # underscore, then star_id, then word boundary
     matches = []
     for root, dirs, files in os.walk(data_dir):
         for file in files:
-            if star_id in file:
-                ext = os.path.splitext(file)[1].lower()
-                if ext not in ignore_ext:
-                    matches.append(os.path.join(root, file))
+            ext = os.path.splitext(file)[1].lower()
+            if pattern.search(file) and ext not in ignore_ext:
+                matches.append(os.path.join(root, file))
     return matches
 
 def extract_instrument_from_filename(filename):
