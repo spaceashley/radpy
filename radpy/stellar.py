@@ -25,7 +25,7 @@ def dist_calc(p, p_err, zpc, verbose=False):
     D = 1 / pc
     dD = D * ((p_err / 1000) / pc)
     if verbose:
-        print("Corrected parallax:", round(pc,5) * 1000)
+        print("Corrected parallax:", round(p+zpc,5), "[mas]")
         print("Distance:", round(D,5), "+/-", round(dD,5), "[pc]")
 
     return D, dD
@@ -88,8 +88,8 @@ def gaia_correct_distance(gaiadrname, plx=None, dplx=None, verbose=False):
     zpt.load_tables()
     name = check_if_string(gaiadrname, verbose)
     source_id = name.split()[-1]
-    if verbose:
-        print('Source ID', source_id)
+    #if verbose:
+    #    print('Source ID', source_id)
 
     if 'Gaia DR3' in name:
         job = Gaia.launch_job(f"""
@@ -158,9 +158,10 @@ def use_hipparcos(star_name, plx=None, dplx=None, verbose=False):
 
     hip_result = Vizier.query_object(star_name, catalog="I/311/hip2")
     if hip_result:
+        hip = hip_result[0]
         if verbose:
             print('Found in Hipparcos catalog')
-        hip = hip_result[0]
+            print('Hipparcos ID: HIP', hip['HIP'][0])
         if plx is None:
             plx = hip['Plx'][0]
         if dplx is None:
@@ -265,7 +266,7 @@ def distances(star_name, plx=None, dplx=None, use_Hipp=False, verbose=False):
             if any(gaiadr3mask):
                 gaiadr3_name = ids[gaiadr3mask][0]
                 if verbose:
-                    print("Found Gaia DR3:", gaiadr3_name)
+                    print("Found Gaia DR3 ID:", gaiadr3_name)
                 d, dd = gaia_correct_distance(gaiadr3_name, plx, dplx, verbose)
                 return round(d,5), round(dd,5)
 
@@ -274,7 +275,7 @@ def distances(star_name, plx=None, dplx=None, use_Hipp=False, verbose=False):
             if any(gaiadr2mask):
                 gaiadr2_name = ids[gaiadr2mask][0]
                 if verbose:
-                    print("Found Gaia DR2:", gaiadr2_name)
+                    print("Found Gaia DR2 ID:", gaiadr2_name)
                 d, dd = gaia_correct_distance(gaiadr2_name, plx, dplx, verbose)
                 return round(d,5), round(dd,5)
 
@@ -283,7 +284,7 @@ def distances(star_name, plx=None, dplx=None, use_Hipp=False, verbose=False):
             if any(gaiadr1mask):
                 gaiadr1_name = ids[gaiadr1mask][0]
                 if verbose:
-                    print("Found Gaia DR1:", gaiadr1_name)
+                    print("Found Gaia DR1 ID:", gaiadr1_name)
                 d, dd = gaia_correct_distance(gaiadr1_name, plx, dplx, verbose)
                 return round(d,5), round(dd,5)
         except Exception as e:
