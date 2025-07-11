@@ -254,7 +254,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     a0.tick_params(axis='x', labelbottom=False)
     a0.xaxis.set_minor_locator(AutoMinorLocator())
     a0.yaxis.set_minor_locator(AutoMinorLocator())
-    a0.set_title(rf'$\rm {title}$')
+    a0.set_title(title)
 
     # --- Bottom panel: Residuals ---
     for key in datasets_to_plot:

@@ -114,6 +114,8 @@ def data_dict_plotting(wrapped_data):
 
 def format_catalog_name(name):
     # Step 1: Replace underscores with spaces
+    if name.startswith('$\\rm') and name.endswith('$'):
+        return name
     name = name.replace('_', ' ')
     # Step 2: Insert a space between the prefix and the numbers—only at the first transition
     name = re.sub(r'^([A-Za-z+\-]+)\s*([0-9].*)', r'\1 \2', name)
@@ -126,7 +128,7 @@ def convert_names_to_latex(names):
 
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
-                 set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
+                 set_axis=None, image_ext=None, binned=None, ldc_band=None, verbose=True):
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
     print(f"Starting processing for {star_name}")
@@ -201,8 +203,10 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     data_dict = data_dict_plotting(wrap_data)
     if binned:
         bin_only = [k for k in binned if k in data_dict]
+    else:
+        bin_only = None
 
-    star_title = convert_names_to_latex(star_name)
+    star_title = convert_names_to_latex([star_name])
     # Uniform disk plot
     fig1, _ = plot_v2_fit(
         data_dict=data_dict,
@@ -211,8 +215,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         to_bin=bin_only,
         plot_udmodel=True,
         eq_text=True,
-        set_axis = set_axis,
-        title=fr"{star_title}",
+        set_axis=set_axis,
+        title=star_title[0],
         show=False
     )
     save_plot(fig1, plot_dir, star_id, "UDfit", image_ext)
@@ -225,8 +229,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         to_bin=bin_only,
         plot_ldmodel=True,
         ldc_band=ldc_band,
-        title=fr"{star_title}",
-        set_axis = set_axis,
+        title=star_title[0],
+        set_axis=set_axis,
         eq_text=True,
         show=False
     )
@@ -252,6 +256,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         r"$\mu_{\rm H}$": star.ldc_H,
         r"$\mu_{\rm J}$": star.ldc_J,
     })
+
     print(f"Finished processing {star_name}")
 
 def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
