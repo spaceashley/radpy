@@ -1,7 +1,11 @@
 #data files
-rsadpy/radpy/data/ClassicData.csv
-rsadpy/radpy/data/PAVOdata.csv
-rsadpy/radpy/data/Vegadata.csv
+rsadpy/radpy/tests/test_data/SingleStarTest/ClassicData.csv
+rsadpy/radpy/tests/test_data/SingleStarTest/PAVOdata.csv
+rsadpy/radpy/tests/test_data/SingleStarTest/Vegadata.csv
+
+#ignore testing data file directory
+rsadpy/radpy/tests/test_data/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
