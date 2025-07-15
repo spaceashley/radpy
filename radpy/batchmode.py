@@ -166,8 +166,8 @@ def converttoIDobj(dfs, verbose=False):
         "V": VegaData,
         "C": ClassicData,
         "M": MircxData,
-        # "My": MysticData,
-        # "S": SpicaData
+        "My": MysticData,
+        "S": SpicaData
     }
     wrapped_data = {}
     for inst_code, df in dfs.items():

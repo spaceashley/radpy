@@ -331,7 +331,7 @@ class MircxData(InterferometryData):
 
 class MysticData(InterferometryData):
     def __init__(self, df):
-        super().__init__(df, instrument_code='m')
+        super().__init__(df, instrument_code='my')
 
     def process(self):
         df = self.raw.dropna(subset=['V2', 'V2_err'])  # clean NaNs
@@ -345,3 +345,22 @@ class MysticData(InterferometryData):
         self.Wave = df['Eff_wave[m]']
         self.Band = df['Eff_band[m]']
         self.Bracket = df['Bracket']
+
+class SpicaData(InterferometryData):
+    def __init__(self, df):
+        super().__init__(df, instrument_code='s')
+
+    def process(self):
+        df = self.raw.dropna(subset=['V2', 'V2_err'])  # clean NaNs
+        self.cleaned = df
+
+        ucoord = df['UCOORD[m]']
+        vcoord = df['VCOORD[m]']
+        self.B = np.sqrt((ucoord ** 2) + (vcoord ** 2))
+        self.V2 = df['V2']
+        self.dV2 = df['V2_err']
+        self.Wave = df['Eff_wave[m]']
+        self.Band = df['Eff_band[m]']
+        self.Bracket = df['Bracket']
+
+

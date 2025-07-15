@@ -87,7 +87,7 @@ def initial_LDfit(spf, v2, dv2, star_params, filt, verbose=False):
     #          chisqr_ldilm -> chi squared reduced value                #
     # What it does:                                                     #
     #        1. Calculates the temperature using the initial UD         #
-    #        2. Calcualted the LDC                                      #
+    #        2. Calculated the LDC                                      #
     #        3. Initialized the model                                   #
     #        4. initializes the parameters                              #
     #        5. Fits for the UD diameter using lmfit                    #
