@@ -1,3 +1,6 @@
+![RADPy logo](https://github.com/spaceashley/radpy/tests/test_data/RADPy v10.png "RADPy logo")
+
+
 # Robust Angular Diameters in Python (`RADPy`)
 ## Introduction to `RADPy`
 
