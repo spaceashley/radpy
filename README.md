@@ -1,3 +1,6 @@
+![RADPy logo](https://github.com/spaceashley/radpy/blob/main/radpynobglogo.png)
+
+
 # Robust Angular Diameters in Python (`RADPy`)
 ## Introduction to `RADPy`
 
@@ -59,3 +62,6 @@ Elliott, Ashley (2025). *RADPy: Robust Angular Diameters in Python*. Version 0.3
 
 ## Contact
 - Ashley Elliott (aelli76@lsu.edu)
+
+## Logo Credits
+Logo was designed by Emelly Tiburcio from LSU and made digital by Olivia Crowell from LSU.
