@@ -16,8 +16,13 @@ def V2(sf, theta, mu, V0):
     alpha = 1-mu
     beta = mu
     x = np.pi*sf*(theta/(206265*1000))
-    vis = (V0**2)*((((alpha/2)+(beta/3))**(-2))*((alpha*(ss.jv(1,x)/x))+ beta*(np.sqrt(np.pi/2)*(ss.jv(3/2,x)/(x**(3/2)))))**2)
-    return vis
+    if V0 == 1:
+        vis = ((((alpha / 2) + (beta / 3)) ** (-2)) * ((alpha * (ss.jv(1, x) / x)) + beta * (
+                    np.sqrt(np.pi / 2) * (ss.jv(3 / 2, x) / (x ** (3 / 2))))) ** 2)
+        return vis
+    else:
+        vis = (V0**2)*((((alpha/2)+(beta/3))**(-2))*((alpha*(ss.jv(1,x)/x))+ beta*(np.sqrt(np.pi/2)*(ss.jv(3/2,x)/(x**(3/2)))))**2)
+        return vis
 ##########################################################################################
 # Random bracket function for bootstrapping for limb-darkening
 def random_bracket_ld(df, num_of_brackets):
@@ -71,7 +76,7 @@ def random_bracket_ld(df, num_of_brackets):
     return spf_br, v2_br, dv2_br, ldc_br, wavgs
 
 ##########################################################################################
-def initial_LDfit(spf, v2, dv2, star_params, filt, v0_flag = True, verbose=False):
+def initial_LDfit(spf, v2, dv2, star_params, filt, v0_flag = False, verbose=False):
     #####################################################################
     # Function: initial_LDfit                                           #
     # Inputs: spf -> spatial frequency                                  #
@@ -146,7 +151,7 @@ def bootstrap_ld(df, inst):
         return new_df
 
 
-def ldfit(df, stellar_params, v0_flag = True, verbose=False):
+def ldfit(df, stellar_params, v0_flag = False, verbose=False):
     #####################################################################
     # Function: ldfit                                                   #
     # Inputs: df -> dataframe with data in it                           #
@@ -168,14 +173,21 @@ def ldfit(df, stellar_params, v0_flag = True, verbose=False):
     if not v0_flag:
         ld_params['V0'].set(value = 1.0, vary = False)
     ld_result = ldmodel.fit(df['V2'], ld_params, sf=df['Spf'], mu=df['LDC'], weights=1 / (df['dV2']), scale_covar=True)
-    theta_ld, _, v0_ld, _ = safe_param_extraction(ld_result)
+    #theta_ld, _, v0_ld, _ = safe_param_extraction(ld_result)
     #theta_ld = ld_result.uvars['theta'].n
     #print(v0_ld)
+    if v0_flag:
+        theta_ld = ld_result.uvars['theta'].n
+        v0_ld = ld_result.uvars['V0'].n
+        return theta_ld, v0_ld
+    if not v0_flag:
+        theta_ld = ld_result.uvars['theta'].n
+        return theta_ld
 
-    return theta_ld, v0_ld
+    #return theta_ld, v0_ld
 
 
-def ldfit_values(x, y, dy, LD, V0, ldcs, stellar_params, v0_flag = True, verbose=False):
+def ldfit_values(x, y, dy, LD, V0, ldcs, stellar_params, v0_flag = False, verbose=False):
     ##################################################################
     # Function: ldfit_values                                         #
     # Inputs: x -> the spatial frequencies                           #
@@ -220,14 +232,21 @@ def ldfit_values(x, y, dy, LD, V0, ldcs, stellar_params, v0_flag = True, verbose
     for band in ldcs:
         ldc_val = ldcs[band]
         if ldc_val is not None:
-            model_v2 = V2(x, avg_LD, ldc_val, avg_V0)
-            chisq, chisqr = chis(y, model_v2, dy, 1)
-            ldc_results[band] = ldc_val
-            chisq_results[band] = {"chisq": chisq, "chisqr": chisqr}
+            if v0_flag:
+                model_v2 = V2(x, avg_LD, ldc_val, avg_V0)
+                chisq, chisqr = chis(y, model_v2, dy, 2)
+                ldc_results[band] = ldc_val
+                chisq_results[band] = {"chisq": chisq, "chisqr": chisqr}
+            if not v0_flag:
+                model_v2 = V2(x, avg_LD, ldc_val, 1.0)
+                chisq, chisqr = chis(y, model_v2, dy, 1)
+                ldc_results[band] = ldc_val
+                chisq_results[band] = {"chisq": chisq, "chisqr": chisqr}
 
     if verbose:
         print('Limb-darkened Disk Diameter after MC/BS:', round(avg_LD, 4), '+/-', round(std_LD, 5), 'mas')
-        print('V0^2:', round(avg_V0, 5), '+/-', std_V0)
+        if v0_flag:
+            print('V0^2:', round(avg_V0, 5), '+/-', std_V0)
         for band, ldc_val in ldc_results.items():
             print(f"Limb-darkening coefficient in {band}:", round(ldc_val, 5))
             print(f"Chi-squared for {band} band:", round(chisq_results[band]["chisq"], 3))
@@ -268,14 +287,19 @@ def mcbs_worker(args):
             boot_df = bootstrap_ld(df, inst)
             bs_dfs.append(boot_df)
         new_df = pd.concat(bs_dfs, ignore_index=True)
-        theta_ldbs, V0_ldbs = ldfit(new_df, stellar_params, v0_flag, verbose)
-        LD.append(theta_ldbs)
-        V0.append(V0_ldbs)
-    return LD, V0
+        if v0_flag:
+            theta_ldbs, V0_ldbs = ldfit(new_df, stellar_params, v0_flag, verbose)
+            LD.append(theta_ldbs)
+            V0.append(V0_ldbs)
+            return LD, V0
+        if not v0_flag:
+            theta_ldbs = ldfit(new_df, stellar_params, v0_flag, verbose)
+            LD.append(theta_ldbs)
+            return LD
 
 
 
-def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, v0_flag = True, verbose=False, debug=False):
+def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, v0_flag = False, verbose=False, debug=False):
     ######################################################################
     # Function: run_ldmcbs_fit_parallel                                  #
     # Inputs: mc_num -> number of Monte Carlo iterations                 #
@@ -381,11 +405,11 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, v0_flag = True, 
             results = list(executor.map(mcbs_worker, mc_args))
             for res in results:
                 LD.extend(res)
-                V0.extend(res)
+                if v0_flag:
+                    V0.extend(res)
 
         T_old = T_new
         theta_old = theta_new
-        theta_new, _,V0_new, _, T_new, _, _, _ = ldfit_values(x, y, dy, LD,V0, ldc_per_filter, stellar_params, v0_flag,verbose=debug)
         #print(V0_new)
         stellar_params.update(teff=round(T_new,5), ldtheta=round(theta_new,5))
         diff_teff = percent_diff(T_old, T_new, verbose=debug)
@@ -395,7 +419,11 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, v0_flag = True, 
         print("Final Values after ", iter, " iterations:")
     theta_ld, dtheta_ld, V0_ld, dV0_ld, T, dT, final_ldcs, final_chis = ldfit_values(x, y, dy, LD, V0, ldc_per_filter, stellar_params, v0_flag,
                                                                       verbose)
-    stellar_params.update(teff=round(T,5), ldtheta=round(theta_ld,5), ldtheta_err=round(dtheta_ld,5), ldv0 = round(V0_ld, 5), ldv0_err = round(dV0_ld))
+    if v0_flag:
+        stellar_params.update(teff=round(T,5), ldtheta=round(theta_ld,5), ldtheta_err=round(dtheta_ld,5), ldv0 = round(V0_ld, 5), ldv0_err = round(dV0_ld))
+    if not v0_flag:
+        stellar_params.update(teff=round(T, 5), ldtheta=round(theta_ld, 5), ldtheta_err=round(dtheta_ld, 5))
+
     for filt, mu in final_ldcs.items():
         setattr(stellar_params, f"ldc_{filt}", round(mu, 5))
     diff_teff = percent_diff(T_old, T_new, verbose)

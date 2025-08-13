@@ -10,8 +10,12 @@ warnings.filterwarnings("ignore", message="DataFrameGroupBy.apply operated on th
 #Uniform disk V2 equation
 def UDV2(sf, theta, V0):
     x = np.pi*sf*(theta/(206265*1000))
-    vis2 = (V0**2)*((2*ss.jv(1,x))/x)**2
-    return vis2
+    if V0 == 1:
+        vis2 = (((2*ss.jv(1,x))/x)**2)
+        return vis2
+    else:
+        vis2 = (V0**2)*(((2*ss.jv(1,x))/x)**2)
+        return vis2
 
 ##########################################################################################
 # calculates chi squared and chi squared reduced
@@ -114,7 +118,7 @@ def safe_param_extraction(result):
         uvarv = result.uvars['V0']
         return uvart.n, uvart.s, uvarv.n, uvarv.s
 ##########################################################################################
-def initial_UDfit(spf, v2, dv2, theta_guess, V0_guess, star_params, v0_flag=True, verbose=False):
+def initial_UDfit(spf, v2, dv2, theta_guess, V0_guess, star_params, v0_flag=False, verbose=False):
     #####################################################################
     # Function: initial_UDfit                                           #
     # Inputs: spf -> spatial frequency                                  #
@@ -122,6 +126,8 @@ def initial_UDfit(spf, v2, dv2, theta_guess, V0_guess, star_params, v0_flag=True
     #         dv2 -> error on the V2                                    #
     #         theta_guess -> initial guess for theta                    #
     #         star_params -> stellar class object                       #
+    #         v0_flag -> set to fit with a scaling factor or not        #
+    #                    True: fits with a scaling factor               #
     #         verbose -> if set to True, allows print statements        #
     #                    defaults to False                              #
     # Outputs: theta_ilm -> initial uniform disk diameter               #
@@ -130,11 +136,12 @@ def initial_UDfit(spf, v2, dv2, theta_guess, V0_guess, star_params, v0_flag=True
     # What it does:                                                     #
     #        1. Initialized the model                                   #
     #        2. initializes the parameters                              #
-    #        3. Fits for the UD diameter using lmfit                    #
+    #        3. If the v0_flag is not set, will fix V0 to be 1.0        #
+    #        4. Fits for the UD diameter using lmfit                    #
     #           uses for the weights as 1/dv2                           #
-    #        4. pulls out the theta, dtheta, and chi squared reduced    #
-    #        5. updates the stellar object                              #
-    #        6. Returns the theta, dtheta, and chi squared reduced      #
+    #        5. pulls out the theta, dtheta, and chi squared reduced    #
+    #        6. updates the stellar object                              #
+    #        7. Returns the theta, dtheta, and chi squared reduced      #
     #####################################################################
 
     udmodel = Model(UDV2)
@@ -201,7 +208,7 @@ def bootstrap(df, inst):
         return new_df
 
 
-def udfit(df, stellar_params, v0_flag = True, verbose=False):
+def udfit(df, stellar_params, v0_flag = False, verbose=False):
     #####################################################################
     # Function: udfit                                                   #
     # Inputs: df -> dataframe with data in it                           #
@@ -224,12 +231,16 @@ def udfit(df, stellar_params, v0_flag = True, verbose=False):
         ud_params['V0'].set(value=1.0, vary=False)
     ud_result = udmodel.fit(df['V2'], ud_params, sf=df['Spf'], weights=1 / (df['dV2']), scale_covar=True)
 
-    theta_ud = ud_result.uvars['theta'].n
-    v0_ud = ud_result.uvars['V0'].n
-    return theta_ud, v0_ud
+    #theta_ud = ud_result.uvars['theta'].n
+    if v0_flag:
+        theta_ud = ud_result.uvars['theta'].n
+        v0_ud = ud_result.uvars['V0'].n
+        return theta_ud, v0_ud
+    if not v0_flag:
+        theta_ud = ud_result.uvars['theta'].n
+        return theta_ud
 
-
-def run_UDfit(mc_num, bs_num, datasets, stellar_params, v0_flag = True, verbose=False):
+def run_UDfit(mc_num, bs_num, datasets, stellar_params, v0_flag = False, verbose=False):
     ######################################################################
     # Function: run_udmcbs_fit                                           #
     # Inputs: mc_num -> number of Monte Carlo iterations                 #
@@ -285,20 +296,31 @@ def run_UDfit(mc_num, bs_num, datasets, stellar_params, v0_flag = True, verbose=
 
             new_df = pd.concat(bs_dfs, ignore_index=True)
 
-            theta_udbs, v0_udbs = udfit(new_df, stellar_params, v0_flag, verbose)
+            if v0_flag:
+                theta_udbs, v0_udbs = udfit(new_df, stellar_params, v0_flag, verbose)
+                UD.append(theta_udbs)
+                V0.append(v0_udbs)
 
-            UD.append(theta_udbs)
-            V0.append(v0_udbs)
-            if verbose:
-                udmcbs_spf.append(new_df['Spf'])
-                udmcbs_v2.append(new_df['V2'])
-                udmcbs_dv2.append(new_df['dV2'])
-                return UD, V0, udmcbs_spf, udmcbs_v2, udmcbs_dv2
+                if verbose:
+                    udmcbs_spf.append(new_df['Spf'])
+                    udmcbs_v2.append(new_df['V2'])
+                    udmcbs_dv2.append(new_df['dV2'])
+                    return UD, V0, udmcbs_spf, udmcbs_v2, udmcbs_dv2
+                return UD, V0
 
-    return UD, V0
+            if not v0_flag:
+                theta_udbs = udfit(new_df, stellar_params, v0_flag, verbose)
+                UD.append(theta_udbs)
+
+                if verbose:
+                    udmcbs_spf.append(new_df['Spf'])
+                    udmcbs_v2.append(new_df['V2'])
+                    udmcbs_dv2.append(new_df['dV2'])
+                    return UD, udmcbs_spf, udmcbs_v2, udmcbs_dv2
+                return UD
 
 
-def udfit_values(x, y, dy, UD, V0, stellar_params, verbose=False):
+def udfit_values(x, y, dy, UD, stellar_params, v0_flag = False, verbose=False):
     ################################################################
     # Function: udfit_values                                       #
     # Inputs: x -> the spatial frequencies                         #
@@ -318,17 +340,24 @@ def udfit_values(x, y, dy, UD, V0, stellar_params, verbose=False):
     ################################################################
     avg_UD = np.mean(UD)
     std_UD = mad_std(UD)
-    avg_V0 = np.mean(V0)
-    std_V0 = mad_std(V0)
+    if v0_flag:
+        avg_V0 = np.mean(V0)
+        std_V0 = mad_std(V0)
+        chisq, chisqr = chis(y, UDV2(x, avg_UD, avg_V0), y, 2)
+        stellar_params.update(teff=round(teff_ud[0], 5), teff_err=round(teff_ud[1], 5), udtheta=round(avg_UD, 5),
+                              udtheta_err=round(std_UD, 5), udv0=round(avg_V0, 5), udv0_err=round(std_V0, 5))
+    if not v0_flag:
+        chisq, chisqr = chis(y, UDV2(x, avg_UD, 1), y, 1)
 
-    chisq, chisqr = chis(y, UDV2(x, avg_UD, avg_V0), y, 1)
+        stellar_params.update(teff=round(teff_ud[0], 5), teff_err=round(teff_ud[1], 5), udtheta=round(avg_UD, 5),
+                              udtheta_err=round(std_UD, 5))
+
     teff_ud = temp(stellar_params.fbol, stellar_params.fbol_err, avg_UD, std_UD)
 
-    stellar_params.update(teff=round(teff_ud[0], 5), teff_err=round(teff_ud[1], 5), udtheta=round(avg_UD, 5),
-                          udtheta_err=round(std_UD, 5), udv0=round(avg_V0, 5), udv0_err=round(std_V0, 5))
     if verbose:
         print('Uniform Disk Diameter after MC/BS:', round(avg_UD, 4), '+/-', round(std_UD, 5), 'mas')
-        print('V0**2:', round(avg_V0, 4), '+/-', round(std_V0, 4))
+        if v0_flag:
+            print('V0**2:', round(avg_V0, 4), '+/-', round(std_V0, 4))
         print("Chi-squared:", round(chisq, 3))
         print("Chi-squared reduced:", round(chisqr, 3))
         print("Temperature:", round(teff_ud[0], 1), "+/-", round(teff_ud[1], 1), "K")
