@@ -5,7 +5,7 @@ import concurrent.futures
 import scipy.special as ss
 from radpy.stellar import temp
 from astropy.stats import mad_std
-from radpy.UDfitting import chis, weight_avg, percent_diff, safe_param_extraction
+from radpy.UDfitting import chis, weight_avg, percent_diff, safe_theta_extraction
 from radpy.limbdarkcoeffs import ldc_calc
 
 import warnings
