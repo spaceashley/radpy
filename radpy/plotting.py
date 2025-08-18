@@ -234,7 +234,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         if ldc_value is not None and theta is not None:
             model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
             a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
-            if eq_text and diam_text is None:
+            if eq_text:
                 eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                 a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
 
@@ -247,7 +247,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         if theta is not None:
             model_label = fr"$\rm Uniform~Disk~Model$"
             a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
-            if eq_text and diam_text is None:
+            if eq_text:
                 eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                 a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
         else:
