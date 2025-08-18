@@ -61,7 +61,7 @@ For a tutorial on how to use batch mode, go here: <https://github.com/spaceashle
 
 If you use `RADPy` in your research, please cite it as:
 
-Elliott, Ashley (2025). *RADPy: Robust Angular Diameters in Python*. Version 0.5.2. Available on PyPI: https://pypi.org/project/rsadpy. Source code: https://github.com/spaceashley/radpy
+Elliott, Ashley (2025). *RADPy: Robust Angular Diameters in Python*. Version 0.5.3. Available on PyPI: https://pypi.org/project/rsadpy. Source code: https://github.com/spaceashley/radpy
 
 ## Contact
 - Ashley Elliott (aelli76@lsu.edu)
