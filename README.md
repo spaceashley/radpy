@@ -9,9 +9,9 @@
 - Classic/CLIMB
 - PAVO
 - VEGA
-- MIRC-X (in progress)
-
-The remaining CHARA instruments SPICA and MYSTIC will be integrated soon.
+- MIRC-X
+- MYSTIC
+- SPICA
 
 ## To install:
 
@@ -50,15 +50,18 @@ For limb-darkened disk diameters, `RADPy` follows a similar structure to the uni
 - For each iteration of the MC, `RADPy` calculates a limb-darkening coefficient for each band used (i.e. R-band). Within the bootstrapping, `RADPy` samples the limb-darkening coefficient on a normal distribution using 0.02 has the "error". The limb-darkening coefficient is then used in the full visibility squared equation and the limb-darkened angular diameter is fit.
 - To ensure `RADPy` is fitting for the optimal angular diameter, the limb-darkened disk fitting function will iterate until minimal change between the previous angular diameter and the one just calculated is seen. For robustness, the effective temperature is also checked as well. Minimal change is defined as being less than or equal to 0.05% difference.
 
-## What is in this notebook?
+## Tutorial notebooks
 
-This tutorial is designed to show the general steps of how a user should implement `RADPy` for your own angular diameter fitting needs for single stars. This notebook will go over how to install, how to import the necessary modules from `RADPy`, how to read in your data, how to perform initial fits, how to run the Monte Carlo simulations, how to calculate the remaining stellar parameters, and how to generate publicaiton ready plots. This tutorial is useful for those that want to step through every part of `RADPy` and see the outputs of each step. 
+For a tutorial for single stars, go here: <https://github.com/spaceashley/radpy/blob/main/tests/SingleStarTutorial.ipynb>
+
+For a tutorial on how to use batch mode, go here: <https://github.com/spaceashley/radpy/blob/main/tests/BatchModeTutorial.ipynb>
+
 
 ## How to Cite
 
 If you use `RADPy` in your research, please cite it as:
 
-Elliott, Ashley (2025). *RADPy: Robust Angular Diameters in Python*. Version 0.3.9. Available on PyPI: https://pypi.org/project/rsadpy. Source code: https://github.com/spaceashley/radpy
+Elliott, Ashley (2025). *RADPy: Robust Angular Diameters in Python*. Version 0.5.1. Available on PyPI: https://pypi.org/project/rsadpy. Source code: https://github.com/spaceashley/radpy
 
 ## Contact
 - Ashley Elliott (aelli76@lsu.edu)
