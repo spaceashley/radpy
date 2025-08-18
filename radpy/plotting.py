@@ -169,6 +169,14 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'mystic': r'$\rm MYSTIC$',
         'spica': r'$\rm SPICA$'
     }
+    binlabel_map = {
+        'pavo': r'$\rm PAVO~(binned)$',
+        'classic': r'$\rm Classic~(binned)$',
+        'vega': r'$\rm VEGA~(binned)$',
+        'mircx': r'$\rm MIRC-X~(binned)$',
+        'mystic': r'$\rm MYSTIC~(binned)$',
+        'spica': r'$\rm SPICA~(binned)$'
+    }
     alpha_map = {
         'pavo': 0.15,
         'classic': 0.5,
@@ -201,6 +209,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         data = data_dict[key]
         color = color_map.get(key, None)
         bin_color = binned_color_map.get(key, None)
+        bin_label = binlabel_map.get(key, None)
         marker = marker_map.get(key, '.')
         label = label_map.get(key, key.capitalize())
         alpha = alpha_map.get(key, 0.5)
@@ -216,7 +225,8 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                         capsize=3, alpha=alpha)
             # Plot binned points, with label
             binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
-            a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=6, color=bin_color, label=label)
+            a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=6, color=bin_color,
+                    label=bin_label)
             a0.errorbar(binned_spf, binned_v2, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                         color=bin_color,
                         capsize=3)
