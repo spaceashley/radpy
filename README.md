@@ -9,9 +9,9 @@
 - Classic/CLIMB
 - PAVO
 - VEGA
-- MIRC-X (in progress)
-
-The remaining CHARA instruments SPICA and MYSTIC will be integrated soon.
+- MIRC-X
+- MYSTIC
+- SPICA
 
 ## To install:
 
