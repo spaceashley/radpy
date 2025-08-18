@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use RADPy in your research, please cite it using the following metadata."
 title: "RADPy: Robust Angular Diameters in Python"
-version: "0.5.1"
+version: "0.5.2"
 date-released: "2025-08-2025"
 authors:
   - family-names: "Elliott"
