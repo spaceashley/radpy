@@ -246,7 +246,7 @@ def convert_names_to_latex(names):
 
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
-                 set_axis=None, image_ext=None, binned=None, ldc_band=None, verbose=True):
+                 set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
     ##################################################################
     # Function: process_star                                         #
     # Inputs: star_name -> name of star                              #
@@ -265,6 +265,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     #         binned -> data you want binned i.e. ['pavo']           #
     #         ldc_band -> limb darkening band you want               #
     #                     Options: 'ldc_R', 'ldc_H', 'ldc_K', 'ldc_J'#
+    #         v0_flag - > allows you to fit for a scaling factor     #
+    #                     V0^2, Default is false.                    #
     #         verbose -> allows print statements to screen           #
     # Outputs: None                                                  #
     # What it does:                                                  #
@@ -344,16 +346,16 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         star.dist_err = dD
 
     # Initial fits
-    initial_UDfit(spf, v2, dv2, 0.4, star, verbose=verbose)
-    initial_LDfit(spf, v2, dv2, star, 'R', verbose=verbose)
+    initial_UDfit(spf, v2, dv2, 0.4, star, v0_flag , verbose=verbose)
+    initial_LDfit(spf, v2, dv2, star, 'R', v0_flag, verbose=verbose)
 
     # Monte Carlo uniform-disk fit
     datasets = list(wrap_data.values())
-    results_UD = run_UDfit(bs_num, mc_num, datasets=datasets, stellar_params=star)
-    udfit_values(spf, v2, dv2, results_UD, stellar_params=star, verbose=verbose)
+    results_UD = run_UDfit(bs_num, mc_num, datasets=datasets, stellar_params=star, v0_flag=v0_flag)
+    udfit_values(spf, v2, dv2, results_UD, stellar_params=star, v0_flag=v0_flag, verbose=verbose)
 
     # Monte Carlo limb-darkened fit
-    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2], datasets=datasets, stellar_params=star, verbose=verbose)
+    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2], datasets=datasets, stellar_params=star, v0_flag = v0_flag, verbose=verbose)
 
     # Calculate additional stellar parameters
     calc_star_params(star, verbose=verbose)
@@ -399,29 +401,52 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     save_plot(fig2, plot_dir, star_id, "LDfit", image_ext)
 
     # Collect results for LaTeX
-    latex_rows.append({
-        "Star": star_name,
-        "D (pc)": star.dist,
-        r"$\Delta \rm D (pc)$": star.dist_err,
-        r"$\theta_{\rm UD}$ (mas)": star.udtheta,
-        r"$\Delta\theta_{\rm UD}$ (mas)": star.udtheta_err,
-        r"$\theta_{\rm LD}$ (mas)": star.ldtheta,
-        r"$\Delta\theta_{\rm LD}$ (mas)": star.ldtheta_err,
-        r"$T_{\rm eff}$ (K)": star.teff,
-        r"$\Delta T_{\rm eff}$ (K)": star.teff_err,
-        r"$L_{\star} (\rm L_{\odot})$": star.lum,
-        r"$\Delta L_{\star} (\rm L_{\odot})$": star.lum_err,
-        r"$R_{\star} (\rm R_{\odot})$": star.rad,
-        r"$\Delta R_{\star} (\rm R_{\odot})$": star.rad_err,
-        r"$\mu_{\rm R}$": star.ldc_R,
-        r"$\mu_{\rm K}$": star.ldc_K,
-        r"$\mu_{\rm H}$": star.ldc_H,
-        r"$\mu_{\rm J}$": star.ldc_J,
-    })
+    if v0_flag:
+        latex_rows.append({
+            "Star": star_name,
+            "D (pc)": star.dist,
+            r"$\Delta \rm D (pc)$": star.dist_err,
+            r"$V_{0}^{2}$": star.ldv02,
+            r"$\Delta V_{0}^{2}$": star.ldv02_err,
+            r"$\theta_{\rm UD}$ (mas)": star.udtheta,
+            r"$\Delta\theta_{\rm UD}$ (mas)": star.udtheta_err,
+            r"$\theta_{\rm LD}$ (mas)": star.ldtheta,
+            r"$\Delta\theta_{\rm LD}$ (mas)": star.ldtheta_err,
+            r"$T_{\rm eff}$ (K)": star.teff,
+            r"$\Delta T_{\rm eff}$ (K)": star.teff_err,
+            r"$L_{\star} (\rm L_{\odot})$": star.lum,
+            r"$\Delta L_{\star} (\rm L_{\odot})$": star.lum_err,
+            r"$R_{\star} (\rm R_{\odot})$": star.rad,
+            r"$\Delta R_{\star} (\rm R_{\odot})$": star.rad_err,
+            r"$\mu_{\rm R}$": star.ldc_R,
+            r"$\mu_{\rm K}$": star.ldc_K,
+            r"$\mu_{\rm H}$": star.ldc_H,
+            r"$\mu_{\rm J}$": star.ldc_J,
+        })
+    if not v0_flag:
+        latex_rows.append({
+            "Star": star_name,
+            "D (pc)": star.dist,
+            r"$\Delta \rm D (pc)$": star.dist_err,
+            r"$\theta_{\rm UD}$ (mas)": star.udtheta,
+            r"$\Delta\theta_{\rm UD}$ (mas)": star.udtheta_err,
+            r"$\theta_{\rm LD}$ (mas)": star.ldtheta,
+            r"$\Delta\theta_{\rm LD}$ (mas)": star.ldtheta_err,
+            r"$T_{\rm eff}$ (K)": star.teff,
+            r"$\Delta T_{\rm eff}$ (K)": star.teff_err,
+            r"$L_{\star} (\rm L_{\odot})$": star.lum,
+            r"$\Delta L_{\star} (\rm L_{\odot})$": star.lum_err,
+            r"$R_{\star} (\rm R_{\odot})$": star.rad,
+            r"$\Delta R_{\star} (\rm R_{\odot})$": star.rad_err,
+            r"$\mu_{\rm R}$": star.ldc_R,
+            r"$\mu_{\rm K}$": star.ldc_K,
+            r"$\mu_{\rm H}$": star.ldc_H,
+            r"$\mu_{\rm J}$": star.ldc_J,
+        })
 
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, verbose=True):
+def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
     ######################################################
     # Function: batch_mode                               #
     # Inputs: star_file -> stellar param file            #
@@ -439,6 +464,9 @@ def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71,
     #         binned -> datasets you want binned         #
     #         ldc_band -> limb-darkening coefficent you  #
     #                     want plotted                   #
+    #         v0_flag - > allows you to fit for a scale  #
+    #                     factor, V0^2                   #
+    #                     Default is false.              #
     #         verbose -> allows print statements         #
     # Outputs: None                                      #
     # What it does:                                      #
@@ -459,7 +487,7 @@ def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71,
     count = 0
     for star_name in star_names:
         process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num, set_axis = set_axis,
-                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, verbose=verbose)
+                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, v0_flag = v0_flag, verbose=verbose)
         count += 1
 
     latex_df = pd.DataFrame(latex_rows)

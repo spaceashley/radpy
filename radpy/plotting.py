@@ -65,7 +65,7 @@ def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
 ##########################################################################################
 def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 datasets_to_plot=None, plot_ldmodel=False, plot_udmodel=False,
-                to_bin=None, title=None, set_axis = None, savefig=None, show=True):
+                to_bin=None, title=None, set_axis=None, savefig=None, show=True):
     ###########################################################################
     # Function: plot_v2_fit                                                   #
     # Inputs: data_dict -> dict of InterferometryData objects,                #
@@ -142,7 +142,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'classic': '#738595',
         'vega': '#5edc1f',
         'mircx': '#efc8ff',
-        'mystic': '#ff81c0',
+        'mystic': '#ffcfdc',
         'spica': '#ff964f'
     }
     binned_color_map = {
@@ -157,7 +157,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'pavo': '.',
         'classic': 's',
         'vega': '^',
-        'mircx': 'o',
+        'mircx': 'v',
         'mystic': '*',
         'spica': 'D'
     }
@@ -170,12 +170,12 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'spica': r'$\rm SPICA$'
     }
     alpha_map = {
-        'pavo': 0.25,
-        'classic': 0.25,
-        'vega': 0.25,
-        'mircx': 0.25,
-        'mystic': 0.25,
-        'spica': 0.25
+        'pavo': 0.15,
+        'classic': 0.5,
+        'vega': 0.5,
+        'mircx': 0.15,
+        'mystic': 0.15,
+        'spica': 0.15
     }
 
     if set_axis and line_spf is None:
@@ -216,14 +216,14 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                         capsize=3, alpha=alpha)
             # Plot binned points, with label
             binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
-            a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=7, color=bin_color, label=label)
-            a0.errorbar(binned_spf, binned_v2, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=7,
+            a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=6, color=bin_color, label=label)
+            a0.errorbar(binned_spf, binned_v2, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                         color=bin_color,
                         capsize=3)
         else:
             # Plot unbinned points, with label
-            a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha, label=label)
-            a0.errorbar(spf, data.V2, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+            a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=6, color=color, alpha=alpha, label=label)
+            a0.errorbar(spf, data.V2, yerr=abs(data.dV2), fmt=marker, markersize=6, linestyle='None', linewidth=0.5,
                         color=color,
                         capsize=3, alpha=alpha)
     # --- Model ---
@@ -234,9 +234,10 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         if ldc_value is not None and theta is not None:
             model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
             a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
-            if eq_text:
-                eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~mas$"
+            if eq_text and diam_text is None:
+                eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                 a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
+
         else:
             print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
 
@@ -246,8 +247,8 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         if theta is not None:
             model_label = fr"$\rm Uniform~Disk~Model$"
             a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
-            if eq_text:
-                eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3)} \pm {round(dtheta, 3)} \rm ~mas$"
+            if eq_text and diam_text is None:
+                eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                 a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
         else:
             print(f"Warning: udtheta not present for star, skipping model plot.")
@@ -283,10 +284,11 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
 
             # --- Model and Residuals for Binned ---
             if is_binned:
+                binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
                 model_binv2 = V2(binned_spf, theta, ldc_value)
                 binned_res = binned_v2 - model_binv2
-                a1.plot(binned_spf, binned_res, linestyle='None', marker=marker, markersize=7, color=bin_color)
-                a1.errorbar(binned_spf, binned_res, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=7,
+                a1.plot(binned_spf, binned_res, linestyle='None', marker=marker, markersize=6, color=bin_color)
+                a1.errorbar(binned_spf, binned_res, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                             color=bin_color, capsize=3)
 
         # --- (Repeat similar for UD model if desired) ---
@@ -299,10 +301,11 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                         alpha=alpha)
 
             if is_binned:
+                binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
                 model_binudv2 = UDV2(binned_spf, theta)
                 binned_udres = binned_v2 - model_binudv2
-                a1.plot(binned_spf, binned_udres, linestyle='None', marker=marker, markersize=7, color=bin_color)
-                a1.errorbar(binned_spf, binned_udres, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=7,
+                a1.plot(binned_spf, binned_udres, linestyle='None', marker=marker, markersize=6, color=bin_color)
+                a1.errorbar(binned_spf, binned_udres, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                             color=bin_color, capsize=3)
 
     a1.axhline(y=0, color='black', linestyle='--')
