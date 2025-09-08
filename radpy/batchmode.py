@@ -245,7 +245,7 @@ def convert_names_to_latex(names):
     return names2
 
 
-def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71, ldc_method='L',
+def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, ldc_method, mc_num=71, bs_num=71,
                  set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
     ##################################################################
     # Function: process_star                                         #
@@ -347,7 +347,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     # Initial fits
     initial_UDfit(spf, v2, dv2, 1.0, star, v0_flag , verbose=verbose)
-    initial_LDfit(spf, v2, dv2, star, filt=ldc_band, ldc_method = ldc_method, v0_flag, verbose=verbose)
+    initial_LDfit(spf, v2, dv2, star, ldc_band, ldc_method, v0_flag, verbose=verbose)
 
     # Monte Carlo uniform-disk fit
     datasets = list(wrap_data.values())
@@ -446,7 +446,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, ldc_method='L', set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
+def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
     ######################################################
     # Function: batch_mode                               #
     # Inputs: star_file -> stellar param file            #
