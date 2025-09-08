@@ -346,9 +346,13 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         star.dist_err = dD
     initial_ldc_map = {
         'ldc_r': 'R',
+        'ldc_R': 'R',
         'ldc_k': 'K',
+        'ldc_K': 'K',
         'ldc_h': 'H',
-        'ldc_j': 'J'
+        'ldc_H': 'H',
+        'ldc_j': 'J',
+        'ldc_J': 'J'
     }
     # Initial fits
     initial_UDfit(spf, v2, dv2, 1.0, star, v0_flag , verbose=verbose)
