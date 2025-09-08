@@ -344,10 +344,15 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         D, dD = distances(star_name, verbose=verbose)
         star.dist = D
         star.dist_err = dD
-
+    initial_ldc_map = {
+        'ldc_r': 'R',
+        'ldc_k': 'K',
+        'ldc_h': 'H',
+        'ldc_j': 'J'
+    }
     # Initial fits
     initial_UDfit(spf, v2, dv2, 1.0, star, v0_flag , verbose=verbose)
-    initial_LDfit(spf, v2, dv2, star, ldc_band, ldc_method, v0_flag, verbose=verbose)
+    initial_LDfit(spf, v2, dv2, star, initial_ldc_map[ldc_band], ldc_method, v0_flag, verbose=verbose)
 
     # Monte Carlo uniform-disk fit
     datasets = list(wrap_data.values())
