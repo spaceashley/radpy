@@ -246,7 +246,7 @@ def convert_names_to_latex(names):
 
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
-                 set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
+                 set_axis=None, image_ext=None, binned=None, ldc_band=None, ldc_method = None, v0_flag = False, verbose=True):
     ##################################################################
     # Function: process_star                                         #
     # Inputs: star_name -> name of star                              #
@@ -346,8 +346,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         star.dist_err = dD
 
     # Initial fits
-    initial_UDfit(spf, v2, dv2, 0.4, star, v0_flag , verbose=verbose)
-    initial_LDfit(spf, v2, dv2, star, 'R', v0_flag, verbose=verbose)
+    initial_UDfit(spf, v2, dv2, 1.0, star, v0_flag , verbose=verbose)
+    initial_LDfit(spf, v2, dv2, star, filt=ldc_band, ldc_method = ldc_method, v0_flag, verbose=verbose)
 
     # Monte Carlo uniform-disk fit
     datasets = list(wrap_data.values())
@@ -355,7 +355,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     udfit_values(spf, v2, dv2, results_UD, stellar_params=star, v0_flag=v0_flag, verbose=verbose)
 
     # Monte Carlo limb-darkened fit
-    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2], datasets=datasets, stellar_params=star, v0_flag = v0_flag, verbose=verbose)
+    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2], datasets=datasets, stellar_params=star, ldc_method = ldc_method, v0_flag = v0_flag, verbose=verbose)
 
     # Calculate additional stellar parameters
     calc_star_params(star, verbose=verbose)
@@ -446,7 +446,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
+def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, ldc_method = None, v0_flag = False, verbose=True):
     ######################################################
     # Function: batch_mode                               #
     # Inputs: star_file -> stellar param file            #
@@ -487,7 +487,7 @@ def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71,
     count = 0
     for star_name in star_names:
         process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num, set_axis = set_axis,
-                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, v0_flag = v0_flag, verbose=verbose)
+                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, ldc_method = ldc_method, v0_flag = v0_flag, verbose=verbose)
         count += 1
 
     latex_df = pd.DataFrame(latex_rows)

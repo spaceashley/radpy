@@ -78,7 +78,7 @@ def random_bracket_ld(df, num_of_brackets):
     return spf_br, v2_br, dv2_br, ldc_br, wavgs
 
 ##########################################################################################
-def initial_LDfit(spf, v2, dv2, star_params, filt, v0_flag = False, verbose=False):
+def initial_LDfit(spf, v2, dv2, star_params, filt, ldc_method, v0_flag = False, verbose=False):
     #####################################################################
     # Function: initial_LDfit                                           #
     # Inputs: spf -> spatial frequency                                  #
@@ -105,7 +105,7 @@ def initial_LDfit(spf, v2, dv2, star_params, filt, v0_flag = False, verbose=Fals
     #        8. Returns the theta, dtheta, and chi squared reduced      #
     #####################################################################
     t, dt = temp(star_params.fbol, star_params.fbol_err, star_params.udthetai, star_params.udthetai_err)
-    ldc = ldc_calc(t, star_params.logg, star_params.feh, filt)
+    ldc = ldc_calc(t, star_params.logg, star_params.feh, filt, ldc_method)
     if not v0_flag:
         #print("No Scaling used")
         ldmodel = Model(V2, independent_vars=['sf', 'mu'])
@@ -349,7 +349,7 @@ def mcbs_worker(args):
         return (LD, V0)
 
 
-def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, v0_flag = False, verbose=False, debug=False):
+def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_flag = False, verbose=False, debug=False):
     ######################################################################
     # Function: run_ldmcbs_fit_parallel                                  #
     # Inputs: mc_num -> number of Monte Carlo iterations                 #
@@ -441,7 +441,7 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, v0_flag = False,
             if filt not in ldc_per_filter:
                 ldc_val = ldc_calc(stellar_params.teff,
                                    stellar_params.logg,
-                                   stellar_params.feh, filt)
+                                   stellar_params.feh, filt, ldc_method)
                 ldc_per_filter[filt] = ldc_val
 
         mc_args = []
