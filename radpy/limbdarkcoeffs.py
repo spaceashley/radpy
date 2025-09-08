@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.interpolate import LinearNDInterpolator
-from radpy.config import rppath, rapath, kppath, kapath, hppath, hapath, jppath, japath
+from radpy.config import rppath, rapath, kppath, kapath, hppath, hapath, jppath, japath, rpfpath, rafpath, kpfpath, kafpath, hpfpath, hafpath, jpfpath, jafpath
 
 def create_ldc_functions(df):
     ############################################################################
