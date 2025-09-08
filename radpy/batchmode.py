@@ -245,8 +245,8 @@ def convert_names_to_latex(names):
     return names2
 
 
-def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71,
-                 set_axis=None, image_ext=None, binned=None, ldc_band=None, ldc_method = None, v0_flag = False, verbose=True):
+def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, mc_num=71, bs_num=71, ldc_method,
+                 set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
     ##################################################################
     # Function: process_star                                         #
     # Inputs: star_name -> name of star                              #
@@ -446,7 +446,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, ldc_method = None, v0_flag = False, verbose=True):
+def batch_mode(star_file, data_dir, output_dir, latex_out, mc_num=71, bs_num=71, ldc_method, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
     ######################################################
     # Function: batch_mode                               #
     # Inputs: star_file -> stellar param file            #
