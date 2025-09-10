@@ -42,14 +42,25 @@ def find_files_for_star(star_id, data_dir):
     #         appends file to the matches list         #
     #      6. Returns the file list                    #
     ####################################################
+    # Normalize input: remove all non-alphanumeric chars for the pattern base
     ignore_ext = {'.jpg', '.jpeg', '.png', '.pdf', '.eps', '.gif', '.tif', '.tiff', '.bmp'}
-    pattern = re.compile(rf'_{star_id}\b')  # underscore, then star_id, then word boundary
+    base_id = re.sub(r'[\W_]+', '', star_id)
+    # Build pattern: allow any non-alphanumeric chars or nothing between the parts
+    # Split the input into alpha and numeric parts (e.g., HD, 219134)
+    match = re.match(r'([A-Za-z]+)[\s_-]*(\d+)', base_id)
+    if match:
+        prefix, number = match.groups()
+        # Allow for any separator (space, underscore, dash, or nothing) between prefix and number
+        pattern = re.compile(rf"{prefix}[\s_\-]*{number}", re.IGNORECASE)
+    else:
+        # Fallback: just match whatever was given, loosely
+        pattern = re.compile(re.escape(base_id), re.IGNORECASE)
     matches = []
-    for root, dirs, files in os.walk(data_dir):
-        for file in files:
-            ext = os.path.splitext(file)[1].lower()
-            if pattern.search(file) and ext not in ignore_ext:
-                matches.append(os.path.join(root, file))
+    for file in os.listdir(data_dir):
+        ext = os.path.splitext(file)[1].lower()
+        if os.path.isfile(os.path.join(data_dir, file)) and ext not in ignore_ext:
+            if pattern.search(file):
+                matches.append(os.path.join(data_dir, file))
     return matches
 
 def extract_instrument_from_filename(filename):
@@ -65,14 +76,14 @@ def extract_instrument_from_filename(filename):
     #         of the filename                          #
     #      5. If not found, returns "UNKNOWN"          #
     ####################################################
-    instruments = {'C': 'classic', 'P': 'pavo', 'V': 'vega', 'M': 'mircx', 'MY': 'mystic', 'S': 'spica'}
+    instruments = {'C': 'classic', 'P': 'pavo', 'V': 'vega', 'M': 'mircx', 'My': 'mystic', 'S': 'spica'}
     name = os.path.basename(filename).upper()
     # Try to detect instrument by filename
     if "PAVO" in name: return "P"
     if "VEGA" in name: return "V"
     if "CLASSIC" in name or "CLIMB" in name: return "C"
     if "MIRCX" in name: return "M"
-    if "MYSTIC" in name: return "MY"
+    if "MYSTIC" in name: return "My"
     if "SPICA" in name: return "S"
     # Fallback: use first letter prefix
     for key in instruments:
@@ -296,6 +307,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
     print(f"Starting processing for {star_name}")
+    if star_id is None:
+        star_id = star_name
     files = find_files_for_star(star_id, data_dir)
     if not files:
         print(f"No files found for {star_name} ({star_id})")

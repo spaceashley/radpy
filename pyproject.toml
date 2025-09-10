@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rsadpy"
-version = "0.6.7"
+version = "0.7.0"
 description = "Robust Angular Diameters in Python: an angular diameter fitting routine for multi-wavelength interferometric data"
 authors = ["Ashley Elliott <elliottashleya99@gmail.com>"]
 license = "GPL-3.0"
@@ -12,19 +12,19 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
-astropy = "6.1.6"
-astroquery = "0.4.6"
-corner = "2.2.2"
-ipympl = "0.9.4"
-lmfit = "1.2.2"
-matplotlib = "3.9.2"
-numpy = "1.25.2"
-pandas = "2.2.2"
-scipy = "1.10.0"
+python = ">=3.10"
+astropy = ">=6.1.6"
+astroquery = ">=0.4.6"
+corner = ">=2.2.2"
+ipympl = ">=0.9.4"
+lmfit = ">=1.2.2"
+matplotlib = ">=3.9.2"
+numpy = ">=1.25.2"
+pandas = ">=2.2.2"
+scipy = ">=1.10.0"
 gaiadr3-zeropoint = "^0.0.4"
-pytest = "7.1.2"
-uncertainties = "3.1.7"
+pytest = ">=7.1.2"
+uncertainties = ">=3.1.7"
 
 
 [tool.poetry.urls]
