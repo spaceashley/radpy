@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
-from radpy.UDfitting import UDV2
-from radpy.LDfitting import V2
+from radpy.UDfitting import UDV2, scaledUDV2
+from radpy.LDfitting import V2, scaledV2
 plt.rcParams['text.usetex'] = True
 
 
@@ -65,7 +65,7 @@ def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
 ##########################################################################################
 def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 datasets_to_plot=None, plot_ldmodel=False, plot_udmodel=False,
-                to_bin=None, title=None, set_axis=None, savefig=None, show=True):
+                to_bin=None, v0_flag = False, title=None, set_axis=None, savefig=None, show=True):
     ###########################################################################
     # Function: plot_v2_fit                                                   #
     # Inputs: data_dict -> dict of InterferometryData objects,                #
@@ -238,30 +238,58 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                         capsize=3, alpha=alpha)
     # --- Model ---
     if plot_ldmodel:
-        ldc_value = getattr(star, ldc_band, None)
-        theta = getattr(star, "ldtheta", None)
-        dtheta = getattr(star, "ldtheta_err", None)
-        if ldc_value is not None and theta is not None:
-            model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
-            a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
-            if eq_text:
-                eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
-                a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
+        if not v0_flag:
+            ldc_value = getattr(star, ldc_band, None)
+            theta = getattr(star, "ldtheta", None)
+            dtheta = getattr(star, "ldtheta_err", None)
+            if ldc_value is not None and theta is not None:
+                model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
+                a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
+                if eq_text:
+                    eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
+                    a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
 
-        else:
-            print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
+            else:
+                print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
+        if v0_flag:
+            ldc_value = getattr(star, ldc_band, None)
+            theta = getattr(star, "ldtheta", None)
+            dtheta = getattr(star, "ldtheta_err", None)
+            v0 = getattr(star, "ldv02", None)
+            if ldc_value is not None and theta is not None:
+                model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
+                a0.plot(line_spf, scaledV2(line_spf, theta, ldc_value, np.sqrt(v0)), '--', color='black', label=model_label)
+                if eq_text:
+                    eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
+                    a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
+
+            else:
+                print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
 
     if plot_udmodel:
-        theta = getattr(star, "udtheta", None)
-        dtheta = getattr(star, "udtheta_err", None)
-        if theta is not None:
-            model_label = fr"$\rm Uniform~Disk~Model$"
-            a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
-            if eq_text:
-                eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
-                a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
-        else:
-            print(f"Warning: udtheta not present for star, skipping model plot.")
+        if not v0_flag:
+            theta = getattr(star, "udtheta", None)
+            dtheta = getattr(star, "udtheta_err", None)
+            if theta is not None:
+                model_label = fr"$\rm Uniform~Disk~Model$"
+                a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
+                if eq_text:
+                    eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
+                    a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
+            else:
+                print(f"Warning: udtheta not present for star, skipping model plot.")
+        if v0_flag:
+            theta = getattr(star, "udtheta", None)
+            dtheta = getattr(star, "udtheta_err", None)
+            v0 = getattr(star, "udv02", None)
+            if theta is not None:
+                model_label = fr"$\rm Uniform~Disk~Model$"
+                a0.plot(line_spf, scaledUDV2(line_spf, theta, np.sqrt(v0)), '--', color='black', label=model_label)
+                if eq_text:
+                    eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
+                    a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
+            else:
+                print(f"Warning: udtheta not present for star, skipping model plot.")
 
     if len(datasets_to_plot) > 1:
         a0.legend(fontsize=12)
@@ -285,8 +313,13 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
 
         # --- Model and Residuals for Unbinned ---
         if plot_ldmodel and ldc_value is not None and theta is not None:
-            model_v2 = V2(spf, theta, ldc_value)
-            residuals = np.array(data.V2) - model_v2
+            if not v0_flag:
+                model_v2 = V2(spf, theta, ldc_value)
+                residuals = np.array(data.V2) - model_v2
+            elif v0_flag:
+                model_v2 = scaledV2(spf, theta, ldc_value, np.sqrt(v0))
+                residuals = np.array(data.V2) - model_v2
+
             a1.plot(spf, residuals, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
             a1.errorbar(spf, residuals, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
                         color=color,
@@ -295,16 +328,24 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
             # --- Model and Residuals for Binned ---
             if is_binned:
                 binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
-                model_binv2 = V2(binned_spf, theta, ldc_value)
-                binned_res = binned_v2 - model_binv2
+                if not v0_flag:
+                    model_binv2 = V2(binned_spf, theta, ldc_value)
+                    binned_res = binned_v2 - model_binv2
+                elif v0_flag:
+                    model_binv2 = scaledV2(binned_spf, theta, ldc_value, np.sqrt(v0))
+                    binned_res = binned_v2 - model_binv2
                 a1.plot(binned_spf, binned_res, linestyle='None', marker=marker, markersize=6, color=bin_color)
                 a1.errorbar(binned_spf, binned_res, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                             color=bin_color, capsize=3)
 
         # --- (Repeat similar for UD model if desired) ---
         if plot_udmodel and theta is not None:
-            model_udv2 = UDV2(spf, theta)
-            ud_res = np.array(data.V2) - model_udv2
+            if not v0_flag:
+                model_udv2 = UDV2(spf, theta)
+                ud_res = np.array(data.V2) - model_udv2
+            elif v0_flag:
+                model_udv2 = scaledUDV2(spf, theta, np.sqrt(v0))
+                ud_res = np.array(data.V2) - model_udv2
             a1.plot(spf, ud_res, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
             a1.errorbar(spf, ud_res, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
                         color=color, capsize=5,
@@ -312,8 +353,12 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
 
             if is_binned:
                 binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
-                model_binudv2 = UDV2(binned_spf, theta)
-                binned_udres = binned_v2 - model_binudv2
+                if not v0_flag:
+                    model_binudv2 = UDV2(binned_spf, theta)
+                    binned_udres = binned_v2 - model_binudv2
+                elif v0_flag:
+                    model_binudv2 = scaledUDV2(binned_spf, theta, np.sqrt(v0))
+                    binned_udres = binned_v2 - model_binudv2
                 a1.plot(binned_spf, binned_udres, linestyle='None', marker=marker, markersize=6, color=bin_color)
                 a1.errorbar(binned_spf, binned_udres, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                             color=bin_color, capsize=3)
