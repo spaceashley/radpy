@@ -17,11 +17,5 @@
     "angular diameters",
     "fundamental stellar properties"
   ],
-  "related_identifiers": [
-    {
-      "relation": "isHostedBy",
-      "identifier": "https://github.com/spaceashley/radpy"
-    }
-  ],
   "access_right": "open"
 }
