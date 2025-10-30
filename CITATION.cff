@@ -3,6 +3,7 @@ message: "If you use RADPy in your research, please cite it using the following 
 title: "RADPy: Robust Angular Diameters in Python"
 version: "0.7.1"
 date-released: "2025-09-30"
+doi: "10.5281/zenodo.17488122"
 authors:
   - family-names: "Elliott"
     given-names: "Ashley"
