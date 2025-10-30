@@ -8,7 +8,7 @@ authors:
     given-names: "Ashley"
     affiliation: "Louisiana State University"
     orcid: "https://orcid.org/0009-0008-3869-5510"
-license: "GPL-3.0-or-later"
+license: "GPL-3.0-only"
 repository-code: "https://github.com/spaceashley/radpy"
 repository-artifact: "https://pypi.org/project/radpy"
 keywords:
