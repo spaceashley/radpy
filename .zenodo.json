@@ -1,7 +1,7 @@
 {
   "title": "RADPy: Robust Angular Diameters in Python",
   "upload_type": "software",
-  "description": "RADPy: Robust Angular Diameters in Python. If you use RADPy in your research, please cite it using the metadata provided here. (Edit this description to provide a longer project summary for the Zenodo record.)",
+  "description": "RADPy: Robust Angular Diameters in Python. If you use RADPy in your research, please cite it using the metadata provided here.",
   "license": "GPL-3.0-or-later",
   "publication_date": "2025-09-30",
   "creators": [
