@@ -1,3 +1,4 @@
+import io
 import math
 import pickle
 import contextlib
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 from scipy.integrate import quad
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
-
+from radpy.config import svopath
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -357,7 +358,7 @@ def set_filters(df, verbose = False):
 
 
 def get_zpts(df, verbose=False):
-    svo = pd.read_csv('data/svo_filter_info.csv')
+    svo = pd.read_csv(svopath)
     svo_names = svo['Filter_name']
     svo_wref = svo['WavelengthRef']
     svo_weff = svo['WidthEff']
