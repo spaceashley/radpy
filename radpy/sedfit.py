@@ -718,7 +718,7 @@ def calc_fbol(star,x, unit, verbose = False):
     #    4. Sets bolometric flux value and error to star     #
     #    5. Returns values.                                  #
     ##########################################################
-    _, _, _, _, mw, mf, _ = convert(x, unit=unit)
+    _, _, _, _, model_w, model_f, _ = convert(x, unit=unit)
     def new_model(x):
         new_m = np.interp(x, model_w, model_f)
         return new_m
