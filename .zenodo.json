@@ -1,0 +1,21 @@
+{
+  "title": "RADPy: Robust Angular Diameters in Python",
+  "upload_type": "software",
+  "description": "RADPy: Robust Angular Diameters in Python. If you use RADPy in your research, please cite it using the metadata provided here.",
+  "license": "GPL-3.0-only",
+  "publication_date": "2025-09-30",
+  "creators": [
+    {
+      "name": "Ashley Elliott",
+      "affiliation": "Louisiana State University",
+      "orcid": "https://orcid.org/0009-0008-3869-5510"
+    }
+  ],
+  "keywords": [
+    "interferometry",
+    "CHARA",
+    "angular diameters",
+    "fundamental stellar properties"
+  ],
+  "access_right": "open"
+}

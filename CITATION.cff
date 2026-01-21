@@ -1,18 +1,19 @@
 cff-version: 1.2.0
 message: "If you use RADPy in your research, please cite it using the following metadata."
 title: "RADPy: Robust Angular Diameters in Python"
-version: "0.5.3"
-date-released: "2025-08-2025"
+version: "0.7.1"
+date-released: "2025-09-30"
+doi: "10.5281/zenodo.17488122"
 authors:
   - family-names: "Elliott"
     given-names: "Ashley"
-    orcid: "https://orcid.org/0009-0008-3869-5510"
     affiliation: "Louisiana State University"
-license: "GNU General Public License v3"
+    orcid: "https://orcid.org/0009-0008-3869-5510"
+license: "GPL-3.0-only"
 repository-code: "https://github.com/spaceashley/radpy"
-repository-artifact: "https://pypi.org/project/rsadpy"
+repository-artifact: "https://pypi.org/project/radpy"
 keywords:
-  -interferometry
-  -CHARA
-  -angular diameters
-  -fundamental stellar properties
+  - interferometry
+  - CHARA
+  - angular diameters
+  - fundamental stellar properties
