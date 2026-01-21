@@ -8,3 +8,7 @@ gaiadr3-zeropoint
 pandas
 corner
 ipympl
+pickle
+contextlib
+pkg_resources
+SEDFit
