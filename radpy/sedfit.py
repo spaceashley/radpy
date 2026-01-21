@@ -535,8 +535,8 @@ def chi2red(x, numfp, verbose=False):
     return (chi, chi2r)
 
 
-def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, fehrange=None, fitT=False, fit_logg=False,
-            fit_feh=False, verbose=False):
+def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, fehrange=None, avrange = None, fitT=False, fit_logg=False,
+            fit_feh=False, fit_av = False, verbose=False):
     ##########################################################
     # Function: fit_sed                                      #
     # Inputs:                                                #
@@ -590,19 +590,21 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
     downloadflux(x, sed)
     set_quality(x)
 
-    teff, logg, feh = initial_guess
+    teff, logg, feh, av = initial_guess
 
-    x.addguesses(teff=teff, logg=logg, feh=feh)
+    x.addguesses(teff=teff, logg=logg, feh=feh, av = av)
     if teffrange is not None:
         x.addrange(teff=teffrange)
     if loggrange is not None:
         x.addrange(logg=loggrange)
     if fehrange is not None:
         x.addrange(feh=fehrange)
+    if avrange is not None:
+        x.addrange(av=avrange)
 
     x.fit(use_gaia=False, idx=np.arange(0, len(x.sed['index'])), fitdist=False,
-          fitteff=fitT, fitfeh=fit_feh, fitlogg=fit_logg, quality_check=False)
-    numOparams = 2
+          fitteff=fitT, fitfeh=fit_feh, fitlogg=fit_logg, fitav = fit_av, quality_check=False)
+    numOparams = 1
     if fitT == True:
         numOparams += 1
         # print("fitT is set to True.")
@@ -618,6 +620,9 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
         # print("fitfeh is set to True.")
         # print(numOparams)
         star.sed_feh = x.getfeh()
+    if fit_av == True:
+        numOparams +=1
+        star.sed_av = x.getav()
 
     chi2, chi2r = chi2red(x, numOparams, verbose=verbose)
     if verbose:
@@ -628,7 +633,6 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
         print("Log g: {} ".format(x.getlogg()))
         print("Fe/H: {}".format(x.getfeh()))
 
-    star.sed_av = x.getav()
     star.sed_rad = x.getr()[0]
     return x
 
