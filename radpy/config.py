@@ -26,3 +26,5 @@ rpfpath = os.path.join(datadir, 'ldcRPF.csv')
 classicpath = os.path.join(datadir, 'ClassicData.csv')
 pavopath = os.path.join(datadir, 'PAVOdata.csv')
 vegapath = os.path.join(datadir, 'Vegadata.csv')
+
+svopath = os.path.join(datadir, 'svo_filter_info.csv')
