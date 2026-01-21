@@ -215,8 +215,25 @@ def set_quality(self):
         return False
     return
 
-
+#%% Beginning of my own functions
 def match_filters(filt_name, verbose=False):
+    ###########################################################
+    # Function: match_filters                                 #
+    # Inputs:                                                 #
+    #    filt_name: name of the filter bandpass               #
+    #    verbose: if True, returns the print statements       #
+    # Outputs:                                                #
+    #    match: filter name in the svo format                 #
+    #    sedmatch: filter name in the SEDFit format           #
+    # How it works:                                           #
+    #    1. reads in filter name and forces it all to be in   #
+    #       lower case                                        #
+    #    2. defines the filter map that takes the read in     #
+    #       filter name and maps it to the correct format     #
+    #    3. matches the input filter to the formats           #
+    #    4. Returns the formatted name                        #
+    ###########################################################
+
     filt_name = filt_name.lower()
 
     # Define the filter mapping dictionary
@@ -345,6 +362,23 @@ def match_filters(filt_name, verbose=False):
     return None, None
 
 def set_filters(df, verbose = False):
+    ##########################################################
+    # Function: set_filters                                  #
+    # Inputs:                                                #
+    #    df: dataframe of photometry data                    #
+    #    verbose: if True, returns an print statements       #
+    # Outputs:                                               #
+    #    df: same dataframe with new columns added           #
+    # How it works:                                          #
+    #    1. reads in the column 'Filter' to a variable       #
+    #    2. in a for loop, calls the match_filters function  #
+    #       which matches the input name to the correct      #
+    #       format                                           #
+    #    3. Creates new columns in the dataframd with the    #
+    #       new filter names in the right formats            #
+    #    4. Returns the dataframe                            #
+    ##########################################################
+
     filter_name = df['Filter'].tolist()
     new_names = []
     sed_names = []
@@ -358,6 +392,23 @@ def set_filters(df, verbose = False):
 
 
 def get_zpts(df, verbose=False):
+    ##########################################################
+    # Function: get_zpts                                     #
+    # Inputs:                                                #
+    #    df: dataframe of photometry data                    #
+    #    verbose: if True, returns an print statements       #
+    # Outputs:                                               #
+    #    df: same dataframe with new columns added           #
+    # How it works:                                          #
+    #    1. Reads in the svo filter data file                #
+    #    2. Sets the columns needed to variables             #
+    #    3. Runs through a for loop to compare the filter    #
+    #       name to the svo filter data set                  #
+    #    4. Pulls the zero point, reference wavelength,      #
+    #       and effective width of the filter                #
+    #    5. Adds the columns to the original dataframe       #
+    #    6. Returns the dataframe                            #
+    ##########################################################
     svo = pd.read_csv(svopath)
     svo_names = svo['Filter_name']
     svo_wref = svo['WavelengthRef']
@@ -392,14 +443,34 @@ def get_zpts(df, verbose=False):
     return df
 
 def read_in_photometry(filename, verbose = False):
+    ##########################################################
+    # Function: read_in_photometry                           #
+    # Inputs:                                                #
+    #    filename: filename of the photometry data           #
+    #    verbose: if True, returns an print statements       #
+    # Outputs:                                               #
+    #    new_sed: astropy table                              #
+    # How it works:                                          #
+    #    1. Reads in the photometry file                     #
+    #    2. Calls set_filters to re-format filter names      #
+    #    3. Calls get_zpts to retrieve the svo filter info   #
+    #    4. Separates out the needed data                    #
+    #    5. Corrects the flux with the zero point            #
+    #    6. Calculates the flux error                        #
+    #    7. Creates a new dataframe with only needed data    #
+    #    8. Converts new data frame to an astropy Table      #
+    #    9. Converts the data into correct format for SEDFit #
+    #   10. Adds units to data in Table.                     #
+    #   11. Returns astropy Table in format for SEDFit       #
+    ##########################################################
     phot = pd.read_csv(filename)
     phot1 = set_filters(phot)
     phot2 = get_zpts(phot1)
-    mag = phot['Magnitude']
-    dmag = phot['Error']
-    zptf = phot['ZPT']*(1e-9)
-    dzptf = phot['ZPT_err']*(1e-9)
-    wave = phot['Ref wavelength']
+    mag = phot2['Magnitude']
+    dmag = phot2['Error']
+    zptf = phot2['ZPT']*(1e-9)
+    dzptf = phot2['ZPT_err']*(1e-9)
+    wave = phot2['Ref wavelength']
     pbwidth = phot['Effective width']/2
 
     flux = (zptf)*(10**(-0.4*(mag)))
@@ -407,7 +478,7 @@ def read_in_photometry(filename, verbose = False):
     term1 = (10**(-0.4*mag))*(dzptf)
     term2 = -0.4*np.log(10)*(zptf)*(10**(-0.4*mag))*dmag
     flux_err = np.sqrt(term1**2 + term2**2)
-    name = phot['Filter']
+    name = phot2['Filter']
     idx = np.arange(0,len(flux), 1)
 
     new_phot = pd.DataFrame({'index': idx,'sed_filter':phot['SED Filter name'], 'la':wave, 'width':pbwidth, 'flux':flux, 'eflux':flux_err})
@@ -426,6 +497,25 @@ def read_in_photometry(filename, verbose = False):
 
 
 def chi2red(x, numfp, verbose=False):
+    ##########################################################
+    # Function: chi2red                                      #
+    # Inputs:                                                #
+    #    x: sed object from SEDFit                           #
+    #    numfp: number of fit parameters                     #
+    #    verbose: if True, returns an print statements       #
+    # Outputs:                                               #
+    #    chi: chi squared value                              #
+    #    chi2r: chi squared reduced value                    #
+    # How it works:                                          #
+    #    1. Sets the index range                             #
+    #    2. Sets the "modeled" component to the synthetic    #
+    #       fluxes from the model                            #
+    #    3. Sets the "real" component to the input fluxes    #
+    #    4. Sets the "error" component to the input flux err #
+    #    5. Calculates chi squared                           #
+    #    6. Calcualtes chi squared reduced                   #
+    #    7. Returns chi squared and chi squared reduced.     #
+    ##########################################################
     idx = np.arange(0, len(x.sed['index']))
     # print(idx)
     m = x.mags[idx]
@@ -447,6 +537,47 @@ def chi2red(x, numfp, verbose=False):
 
 def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, fehrange=None, fitT=False, fit_logg=False,
             fit_feh=False, verbose=False):
+    ##########################################################
+    # Function: fit_sed                                      #
+    # Inputs:                                                #
+    #    sed: sed object                                     #
+    #    star: StellarParams() object                        #
+    #    initial_guess: intitial guess for fit parameters    #
+    #                   [ teff, logg, feh]                   #
+    #    model: model keyword                                #
+    #           'phoenix' -> Phoenix model                   #
+    #           'btsettl' -> BT-SETTL model                  #
+    #           'kurucz' -> Kurucz model                     #
+    #           'coehlo' -> Coehlo model                     #
+    #    teffrange: if fitting for teff, sets the range of   #
+    #               teff values the model can search through #
+    #    loggrange: if fitting for logg, sets the range of   #
+    #               logg values the model can search through #
+    #    fehrange: if fitting for feh, sets the range of feh #
+    #              values the model can search through       #
+    #    fitT: default is False, if True, fits for teff      #
+    #    fit_logg: default is False, if True, fits for logg  #
+    #    fit_feh: default is False, if True, fits for feh    #
+    #    verbose: if True, returns an print statements       #
+    # Outputs:                                               #
+    #    x: sed object with fitted parameters in it          #
+    #    if verbose is true, returns the print statements    #
+    #    displaying fit parameter solutions                  #
+    # How it works:                                          #
+    #    1. Reads in distance, RA, and dec from the star     #
+    #    2. Initializes SEDfit object                        #
+    #    3. Downloads user input photometry file             #
+    #    4. Calls set_quality function to fix the SED object #
+    #    5. Sets initial guess                               #
+    #    6. Adds the intial guesses                          #
+    #    7. Sets ranges for the fit variables if any         #
+    #    8. Calls SEDFit.fit to fit the SED                  #
+    #    9. Determines number of fit params based on what is #
+    #       being fitted                                     #
+    #   10. Calculates chi squared and chi squared reduced   #
+    #   11. Sets the params to the stellar object            #
+    #   12. Returns the SED object                           #
+    ##########################################################
     d = star.dist
     ra = star.ra
     dec = star.dec
@@ -503,6 +634,38 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
 
 
 def convert(sed, unit):
+    ##########################################################
+    # Function: convert                                      #
+    # Inputs:                                                #
+    #    sed: sed object                                     #
+    #    unit: string with what unit you want                #
+    #          options are: 'micron' or 'AA'                 #
+    # Outputs:                                               #
+    #    lit_w: input wavelength                             #
+    #    lit_f: input flux                                   #
+    #    lit_dw: input wavelength error                      #
+    #    lit_df: input flux error                            #
+    #    model_w: model wavelength                           #
+    #    model_f: model flux                                 #
+    #    synth_f: model fluxes in the wavelength badpasses   #
+    # How it works:                                          #
+    #    1. Reads in the model wavelength and converts to    #
+    #       microns if needed. Default is angstroms          #
+    #    2. Reads in the model flux and converts it into     #
+    #       flux from log10(flux/wavelength) and converts it #
+    #       into micron units if needed. Default is angstrom #
+    #    3. Reads in wavelength error and converts if needed #
+    #       Default is angstroms                             #
+    #    4. Reads in flux error and converts it from log     #
+    #       and converts into microns if needed.             #
+    #    5. Reads in model wavelengths and converts it to    #
+    #       microns if needed.                               #
+    #    6. Reads in model flux and converts it out of log   #
+    #       and converts it to microns if needed             #
+    #    7. Reads in synthetic fluxes and converts it out of #
+    #       log and converts it into microns if needed       #
+    #    8. Returns values                                   #
+    ##########################################################
     if unit == 'AA':
         lit_w = sed.sed['la']  # literature wavelengths
         lit_f = (10 ** sed.sed['flux']) / np.array(lit_w)  # literature flux
@@ -534,14 +697,31 @@ def convert(sed, unit):
         return np.array(lit_w), np.array(lit_f), np.array(lit_dw), np.array(lit_df), np.array(model_w), np.array(
             model_f), np.array(synth_f)
 
-def calc_fbol(star, model_w, model_f, verbose = False):
+def calc_fbol(star,x, unit, verbose = False):
+    ##########################################################
+    # Function: calc_fbol                                    #
+    # Inputs:                                                #
+    #    star: star object                                   #
+    #    x: sed object                                       #
+    #    unit: unit string                                   #
+    # Outputs:                                               #
+    #    result: bolometric flux                             #
+    #    error: error on bolometric flux                     #
+    # How it works:                                          #
+    #    1. Calls convert to generate the model values       #
+    #    2. Defines a "model" for integration purposes       #
+    #    3. Integrates the model                             #
+    #    4. Sets bolometric flux value and error to star     #
+    #    5. Returns values.                                  #
+    ##########################################################
+    _, _, _, _, mw, mf, _ = convert(x, unit=unit)
     def new_model(x):
         new_m = np.interp(x, model_w, model_f)
         return new_m
 
     result, error = quad(new_model, min(model_w), 1000000)
     if verbose:
-        print('Fbol = ', round(result/(1e-8), 5), '+/-', round(error/(1e-8),5), '10^(-8) erg/s/cm^s')
+        print('Fbol = ', round(result/(1e-8), 5), '+/-', round(error/(1e-8),5), 'x10^(-8) erg/s/cm^s/angstrom')
 
     star.fbol = round(result/(1e-8), 5)
     star.fbol_err = round(error/(1e-8), 5)
@@ -549,6 +729,33 @@ def calc_fbol(star, model_w, model_f, verbose = False):
 
 
 def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
+    ##########################################################
+    # Function: set_values                                   #
+    # Inputs:                                                #
+    #    x: sed object                                       #
+    #    unit: unit string                                   #
+    #    logPlot: default is False, if True, indicates the   #
+    #             log flag                                   #
+    #    fbol_lam: default is False, if True, indicates the  #
+    #             fbol_lam is flag                           #
+    # Outputs:                                               #
+    #    litp_xvals: input wavelength                        #
+    #    litp_yvals: input flux                              #
+    #    litp_dxvals: input wavelength error                 #
+    #    litp_dyvals: input flux error                       #
+    #    model_xvals: model wavelength                       #
+    #    model_yvals: model flux                             #
+    #    synth_yvals: model fluxes in the wavelength         #
+    #                 bandpasses                             #
+    #   residuals: lit flux values minus synth values        #
+    # How it works:                                          #
+    #    1. Calls convert to generate the model values       #
+    #    2. Based on the flags set, converts the values to   #
+    #       match what the flags say                         #
+    #       logplot: convert everything back into log10      #
+    #       fbol_lam: multiply the flux by wavelength        #
+    #    3. Returns values                                   #
+    ##########################################################
     iwave, iflux, idwave, idflux, mw, mf, msf = convert(x, unit=unit)
 
     if logplot and fbol_lam:
@@ -612,6 +819,19 @@ def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
 
 
 def normalize_number(num):
+    ##########################################################
+    # Function: normalize_number                             #
+    # Inputs:                                                #
+    #    num: number you want normalized                     #
+    # Outputs:                                               #
+    #    normalized_num: normalized number                   #
+    #    exponent: exponent that value was normalized by     #
+    # How it works:                                          #
+    #    1. Determines the power of 10                       #
+    #    2. Determines normalization factor                  #
+    #    3. Normalizes the number                            #
+    #    4. Returns the normalized number and exoponent      #
+    ##########################################################
     # Determine the power of 10 (exponent, X)
     if num != 0:
         exponent = math.floor(math.log10(abs(num)))
@@ -627,6 +847,21 @@ def normalize_number(num):
     return normalized_num, exponent
 
 def setaxislabels(unit, fbol_lam=False):
+    ##########################################################
+    # Function: setaxislabels                                #
+    # Inputs:                                                #
+    #    unit: string of unit wanted                         #
+    #    fbol_lam: flag for fbol_lam                         #
+    # Outputs:                                               #
+    #    xlab: x axis label                                  #
+    #    ylab: y axis label                                  #
+    # How it works:                                          #
+    #    1. Based on unit chosen, sets x label dependent on  #
+    #       unit                                             #
+    #    2. Based on unit chosen and if the fbol_lam flag    #
+    #       has been set, sets y label                       #
+    #    3. Returns x axis and y axis labels                 #
+    ##########################################################
     if unit == 'AA':
         xlab = r'$\rm Wavelength~[\AA]$'
         if fbol_lam:
@@ -643,6 +878,22 @@ def setaxislabels(unit, fbol_lam=False):
         return xlab, ylabs
 
 def set_axis_limits(mw, mf, unit, fbol_lam = False):
+    ##########################################################
+    # Function: set_axis_labels                              #
+    # Inputs:                                                #
+    #    mw: model wavelength array                          #
+    #    mf: model flux array                                #
+    #    unit: string of unit wanted                         #
+    #    fbol_lam: flag for fbol_lam                         #
+    # Outputs:                                               #
+    #    set_axis: the axis limits in the format of          #
+    #              [xmin, xmax, ymin, ymax]                  #
+    # How it works:                                          #
+    #    1. Based on unit chosen and fbol_lam flag setting,  #
+    #       sets the axis limits based on the minimum of the #
+    #       arrays  and maxs of the arrays                   #
+    #    2. Returns the sxis limits                          #
+    ##########################################################
     if unit == 'AA':
         #print('Angstrom')
         if fbol_lam:
@@ -666,6 +917,31 @@ def set_axis_limits(mw, mf, unit, fbol_lam = False):
 
 
 def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, savefig=None, show=True, verbose=False):
+    ##########################################################
+    # Function: plot_sed                                     #
+    # Inputs:                                                #
+    #    x: sed object                                       #
+    #    unit: unit chosen                                   #
+    #    logplot: log flag                                   #
+    #             if True, sets plot in log space            #
+    #    fbol_lam: fbol_lam flag                             #
+    #             if True, multiplies the flux by wavelength #
+    #    set_axis: allows user to set their axis limits      #
+    #             if None, will set based on the model vals  #
+    #    title: allows user to set the plot title            #
+    #    savefig: allows user to save fig                    #
+    #            give a filename                             #
+    #    show: shows Figure                                  #
+    # Outputs:                                               #
+    #    displays the plot                                   #
+    # How it works:                                          #
+    #    1. Determines the axis limits based on user input   #
+    #       and flags set                                    #
+    #    2. Calls set_values to generate the data to be      #
+    #       plotted                                          #
+    #    3. Plots everything                                 #
+    ##########################################################
+
     iwave, iflux, idwave, idflux, mw, mf, msf = convert(x, unit)
 
     plt.rcParams.update({'font.size': 15})
