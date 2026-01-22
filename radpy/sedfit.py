@@ -1,4 +1,5 @@
 import io
+import os
 import math
 import pickle
 import contextlib
@@ -12,6 +13,11 @@ from astropy.table import Table
 from scipy.integrate import quad
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 from radpy.config import svopath
+from astroARIADNE.star import Star
+from astroquery.simbad import Simbad
+from astroARIADNE.fitter import Fitter
+from astropy import coordinates as coord
+from radpy.stellar import check_if_string
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -216,6 +222,306 @@ def set_quality(self):
     return
 
 #%% Beginning of my own functions
+def pull_coords(star_id, star, verbose=False):
+    star_name = check_if_string(star_id, verbose=verbose)
+    simbad_result = Simbad.query_object(star_name)
+    radeg = simbad_result['ra'][0]
+    decdeg = simbad_result['dec'][0]
+
+    if verbose:
+        print(f"\nCoordinates in decimal degrees for {star_name}:")
+        print(f"RA: {radeg}, Dec: {decdeg}")
+
+    coords = coord.SkyCoord(ra=radeg * u.deg, dec=decdeg * u.deg, frame='icrs')
+    # Convert to sexagesimal string representation
+    ra_sg = coords.ra.to_string(unit=u.hourangle, sep=':', precision=5)
+    dec_sg = coords.dec.to_string(unit=u.deg, sep=':', precision=5)
+    star.ra_deg = radeg
+    star.dec_deg = decdeg
+    star.ra_hms = ra_sg
+    star.dec_dms = dec_sg
+    if verbose:
+        print(f"\nCoordinates in sexagesimal format for {star_name}:")
+        print(f"RA: {ra_sg}, Dec: {dec_sg}")
+    return radeg, decdeg, ra_sg, dec_sg
+
+def pull_gaia_id(starid, star, verbose = False):
+    star_name = check_if_string(starid, verbose = verbose)
+    try:
+            simbad_result = Simbad.query_objectids(star_name)
+            if simbad_result is None:
+                if verbose:
+                    print(f"No results found in Simbad for {star_name}")
+                    d, dd = use_hipparcos(star_name, plx, dplx, verbose)
+                return round(d, 5), round(d, dd)
+
+            # Find the column name for 'id' (case-insensitive)
+            id_col = next((col for col in simbad_result.colnames if col.lower() == "id"), None)
+
+            if id_col is not None:
+                ids = simbad_result[id_col]
+            else:
+                raise KeyError("No column named 'id' or 'ID' found in simbad_result")
+
+            gaiadr3mask = ['Gaia DR3' in name for name in ids]
+            if any(gaiadr3mask):
+                gaiadr3_name = ids[gaiadr3mask][0]
+                if verbose:
+                    print("Found Gaia DR3 ID:", gaiadr3_name)
+                gdr3_id = gaiadr3_name.split()[-1]
+                star.GaiaDR3ID = int(gdr3_id)
+                return int(gdr3_id)
+
+                # Only check DR2 if no DR3 found
+            gaiadr2mask = ['Gaia DR2' in name for name in ids]
+            if any(gaiadr2mask):
+                gaiadr2_name = ids[gaiadr2mask][0]
+                if verbose:
+                    print("Found Gaia DR2 ID:", gaiadr2_name)
+                gdr2_id = gaiadr2_name.split()[-1]
+                star.GaiaDR2ID = int(gdr2_id)
+                return int(gdr2_id)
+
+            # Only check DR1 if no DR2 found
+            gaiadr1mask = ['Gaia DR1' in name for name in ids]
+            if any(gaiadr1mask):
+                gaiadr1_name = ids[gaiadr1mask][0]
+                if verbose:
+                    print("Found Gaia DR1 ID:", gaiadr1_name)
+                gdr1_id = gaiadr1_name.split()[-1]
+                star.GaiaDR1ID = int(gdr1_id)
+                return int(gdr1_id)
+    except Exception as e:
+        if verbose:
+            print(f"Error in Simbad query: {e}")
+
+
+def extract_photometry(starid, star, verbose=False):
+    ra = star.ra_deg
+    dec = star.dec_deg
+    if hasattr(star, 'GaiaDR3ID'):
+        if verbose:
+            print('Star has Gaia DR3 ID.')
+        gaia_id = star.GaiaDR3ID
+    elif hasattr(star, 'GaiaDR2ID'):
+        if verbose:
+            print('Star has Gaia DR2 ID.')
+        gaia_id = star.GaiaDR2ID
+    elif hasattr(star, 'GaiaDR1ID'):
+        if verbose:
+            print('Star has Gaia DR1 ID.')
+        gaia_id = star.GaiaDR1ID
+    else:
+        if verbose:
+            print('Star does not have a Gaia ID')
+        gaia_id = None
+    if not verbose:
+        f = io.StringIO()
+        with contextlib.redirect_stdout(f):
+            s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper'], verbose=False)
+
+    if verbose:
+        s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper'], verbose=False)
+
+    return s
+
+def inspect_photometry(phot_obj):
+    phot_obj.print_mags()
+
+def add_photometry(phot_obj, filter_name, mag, mag_err, verbose = False):
+    filter_name = filter_name.lower()
+    filt_map = {
+        'gaia g': ('GaiaDR2v2_G'),
+        'g': ('GaiaDR2v2_G'),
+        'gaia gbp': ('GaiaDR2v2_BP'),
+        'gbp': ('GaiaDR2v2_BP'),
+        'gaia bp': ('GaiaDR2v2_BP'),
+        'gaia grp': ('GaiaDR2v2_RP'),
+        'grp': ('GaiaDR2v2_RP'),
+        'gaia rp': ('GaiaDR2v2_RP'),
+        '2mass k': ('2MASS_Ks'),
+        '2massk': ('2MASS_Ks'),
+        '2mass_k': ('2MASS_Ks'),
+        '2mass j': ('2MASS_J'),
+        '2massj': ('2MASS_J'),
+        '2mass_j': ('2MASS_J'),
+        '2mass h': ('2MASS_H'),
+        '2massh': ('2MASS_H'),
+        '2mass_h': ('2MASS_H'),
+        'tycho bt': ('TYCHO_B_MvB'),
+        'bt': ('TYCHO_B_MvB'),
+        'tycho vt': ('TYCHO_V_MvB'),
+        'vt': ('TYCHO_V_MvB'),
+        'cousins r': ('GROUND_COUSINS_R'),
+        'rc': ('GROUND_COUSINS_R'),
+        'cousins i': ('GROUND_COUSINS_I'),
+        'ic': ('GROUND_COUSINS_I'),
+        'johnson u': ('GROUND_JOHNSON_U'),
+        'u': ('GROUND_JOHNSON_U'),
+        'johnson v': ('GROUND_JOHNSON_V'),
+        'v': ('GROUND_JOHNSON_V'),
+        'johnson b': ('GROUND_JOHNSON_B'),
+        'b': ('GROUND_JOHNSON_B'),
+        'stromgren u': ('STROMGREN_u'),
+        'su': ('STROMGREN_u'),
+        'stromgren v': ('STROMGREN_v'),
+        'sv': ('STROMGREN_v'),
+        'stromgren b': ('STROMGREN_b'),
+        'sb': ('STROMGREN_b'),
+        'stromgren y': ('STROMGREN_y'),
+        'sy': ('STROMGREN_y'),
+        'tess': ('TESS'),
+        'tess t': ('TESS'),
+        't': ('TESS'),
+        'galex fuv': ('Galex_FUV'),
+        'gfuv': ('Galex_FUV'),
+        'galex nuv': ('Galex_NUV'),
+        'gnuv': ('Galex_NUV'),
+        'ps1 g': ('PS1_g'),
+        'panstarrs g': ('PS1_g'),
+        'ps1 r': ('PS1_r'),
+        'panstarrs r': ('PS1_r'),
+        'ps1 i': ('PS1_i'),
+        'panstarrs i': ('PS1_i'),
+        'ps1 z': ('PS1_z'),
+        'panstarrs z': ('PS1_z'),
+        'ps1 y': ('PS1_y'),
+        'panstarrs y': ('PS1_y'),
+        'sdss u': ('SDSS_u'),
+        'sloan u': ('SDSS_u'),
+        'sdss g': ('SDSS_g'),
+        'sloan g': ('SDSS_g'),
+        'sdss r': ('SDSS_r'),
+        'sloan r': ('SDSS_r'),
+        'sdss i': ('SDSS_i'),
+        'sloan i': ('SDSS_i'),
+        'sdss z': ('SDSS_z'),
+        'sloan z': ('SDSS_z'),
+        'wise w1': ('WISE_RSR_W1'),
+        'w1': ('WISE_RSR_W1'),
+        'wise w2': ('WISE_RSR_W2'),
+        'w2': ('WISE_RSR_W2'),
+        'wise w3': ('WISE_RSR_W3'),
+        'w3': ('WISE_RSR_W3'),
+        'wise w4': ('WISE_RSR_W4'),
+        'w4': ('WISE_RSR_W4')
+    }
+
+    filt_name = filt_map.get(filter_name)
+    if verbose:
+        phot_obj.add_mag(mag, mag_err, filt_name)
+
+    if not verbose:
+        f = io.StringIO()
+        with contextlib.redirect_stdout(f):
+            phot_obj.add_mag(mag, mag_err, filt_name)
+
+def remove_photometry(phot_obj, filter_name, verbose = False):
+    filter_name = filter_name.lower()
+    filt_map = {
+        'gaia g': ('GaiaDR2v2_G'),
+        'g': ('GaiaDR2v2_G'),
+        'gaia gbp': ('GaiaDR2v2_BP'),
+        'gbp': ('GaiaDR2v2_BP'),
+        'gaia bp': ('GaiaDR2v2_BP'),
+        'gaia grp': ('GaiaDR2v2_RP'),
+        'grp': ('GaiaDR2v2_RP'),
+        'gaia rp': ('GaiaDR2v2_RP'),
+        '2mass k': ('2MASS_Ks'),
+        '2massk': ('2MASS_Ks'),
+        '2mass_k': ('2MASS_Ks'),
+        '2mass j': ('2MASS_J'),
+        '2massj': ('2MASS_J'),
+        '2mass_j': ('2MASS_J'),
+        '2mass h': ('2MASS_H'),
+        '2massh': ('2MASS_H'),
+        '2mass_h': ('2MASS_H'),
+        'tycho bt': ('TYCHO_B_MvB'),
+        'bt': ('TYCHO_B_MvB'),
+        'tycho vt': ('TYCHO_V_MvB'),
+        'vt': ('TYCHO_V_MvB'),
+        'cousins r': ('GROUND_COUSINS_R'),
+        'rc': ('GROUND_COUSINS_R'),
+        'cousins i': ('GROUND_COUSINS_I'),
+        'ic': ('GROUND_COUSINS_I'),
+        'johnson u': ('GROUND_JOHNSON_U'),
+        'u': ('GROUND_JOHNSON_U'),
+        'johnson v': ('GROUND_JOHNSON_V'),
+        'v': ('GROUND_JOHNSON_V'),
+        'johnson b': ('GROUND_JOHNSON_B'),
+        'b': ('GROUND_JOHNSON_B'),
+        'stromgren v': ('STROMGREN_v'),
+        'sv': ('STROMGREN_v'),
+        'stromgren b': ('STROMGREN_b'),
+        'sb': ('STROMGREN_b'),
+        'stromgren y': ('STROMGREN_y'),
+        'sy': ('STROMGREN_y'),
+        'stromgren u': ('STROMGREN_u'),
+        'su': ('STROMGREN_u'),
+        'tess': ('TESS'),
+        'tess t': ('TESS'),
+        't': ('TESS'),
+        'galex fuv': ('Galex_FUV'),
+        'gfuv': ('Galex_FUV'),
+        'galex nuv': ('Galex_NUV'),
+        'gnuv': ('Galex_NUV'),
+        'ps1 g': ('PS1_g'),
+        'panstarrs g': ('PS1_g'),
+        'ps1 r': ('PS1_r'),
+        'panstarrs r': ('PS1_r'),
+        'ps1 i': ('PS1_i'),
+        'panstarrs i': ('PS1_i'),
+        'ps1 z': ('PS1_z'),
+        'panstarrs z': ('PS1_z'),
+        'ps1 y': ('PS1_y'),
+        'panstarrs y': ('PS1_y'),
+        'sdss u': ('SDSS_u'),
+        'sloan u': ('SDSS_u'),
+        'sdss g': ('SDSS_g'),
+        'sloan g': ('SDSS_g'),
+        'sdss r': ('SDSS_r'),
+        'sloan r': ('SDSS_r'),
+        'sdss i': ('SDSS_i'),
+        'sloan i': ('SDSS_i'),
+        'sdss z': ('SDSS_z'),
+        'sloan z': ('SDSS_z'),
+        'wise w1': ('WISE_RSR_W1'),
+        'w1': ('WISE_RSR_W1'),
+        'wise w2': ('WISE_RSR_W2'),
+        'w2': ('WISE_RSR_W2'),
+        'wise w3': ('WISE_RSR_W3'),
+        'w3': ('WISE_RSR_W3'),
+        'wise w4': ('WISE_RSR_W4'),
+        'w4': ('WISE_RSR_W4')
+    }
+
+    filt_name = filt_map.get(filter_name)
+    if verbose:
+        phot_obj.remove_mag(filt_name)
+
+    if not verbose:
+        f = io.StringIO()
+        with contextlib.redirect_stdout(f):
+            phot_obj.remove_mag(filt_name)
+
+
+def save_photometry(starid, phot_obj, out_dir, verbose=False):
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        print(f"Directory '{out_dir}' created successfully or already exists.")
+    except OSError as e:
+        print(f"Error creating directory {out_dir}: {e}")
+
+    f = Fitter()
+    f.star = phot_obj
+    f.out_folder = out_dir
+    f.star.save_mags(f.out_folder + '/' + starid)
+    if verbose:
+        print('File saved:', os.getcwd() + '/' + f.out_folder + '/' + starid + 'mags.dat')
+    fn = os.getcwd() + '/' + f.out_folder + '/' + starid + 'mags.dat'
+    return fn
+
+
 def match_filters(filt_name, verbose=False):
     ###########################################################
     # Function: match_filters                                 #
@@ -240,15 +546,19 @@ def match_filters(filt_name, verbose=False):
     filter_mapping = {
         'gaia g': ('GAIA/GAIA3.G', 'GAIA.GAIA3.G'),
         'g': ('GAIA/GAIA3.G', 'GAIA.GAIA3.G'),
+        'gaiadr2v2_g': ('GAIA/GAIA3.G', 'GAIA.GAIA3.G'),
         'gaia gbp': ('GAIA/GAIA3.Gbp', 'GAIA.GAIA3.Gbp'),
         'gbp': ('GAIA/GAIA3.Gbp', 'GAIA.GAIA3.Gbp'),
         'gaia bp': ('GAIA/GAIA3.Gbp', 'GAIA.GAIA3.Gbp'),
+        'gaiadr2v2_bp': ('GAIA/GAIA3.Gbp', 'GAIA.GAIA3.Gbp'),
         'gaia grp': ('GAIA/GAIA3.Grp', 'GAIA.GAIA3.Grp'),
         'grp': ('GAIA/GAIA3.Grp', 'GAIA.GAIA3.Grp'),
         'gaia rp': ('GAIA/GAIA3.Grp', 'GAIA.GAIA3.Grp'),
+        'gaiadr2v2_rp': ('GAIA/GAIA3.Grp', 'GAIA.GAIA3.Grp'),
         '2mass k': ('2MASS/2MASS.Ks', '2MASS.Ks'),
         '2massk': ('2MASS/2MASS.Ks', '2MASS.Ks'),
         '2mass_k': ('2MASS/2MASS.Ks', '2MASS.Ks'),
+        '2mass_ks': ('2MASS/2MASS.Ks', '2MASS.Ks'),
         '2mass j': ('2MASS/2MASS.J', '2MASS.J'),
         '2massj': ('2MASS/2MASS.J', '2MASS.J'),
         '2mass_j': ('2MASS/2MASS.J', '2MASS.J'),
@@ -257,8 +567,10 @@ def match_filters(filt_name, verbose=False):
         '2mass_h': ('2MASS/2MASS.H', '2MASS.H'),
         'tycho bt': ('TYCHO/TYCHO.B_MvB', 'TYCHO.TYCHO.B_MvB'),
         'bt': ('TYCHO/TYCHO.B_MvB', 'TYCHO.TYCHO.B_MvB'),
+        'tycho_b_mvb': ('TYCHO/TYCHO.B_MvB', 'TYCHO.TYCHO.B_MvB'),
         'tycho vt': ('TYCHO/TYCHO.V_MvB', 'TYCHO.TYCHO.V_MvB'),
         'vt': ('TYCHO/TYCHO.V_MvB', 'TYCHO.TYCHO.V_MvB'),
+        'tycho_v_mvb': ('TYCHO/TYCHO.V_MvB', 'TYCHO.TYCHO.V_MvB'),
         'hipparcos hp': ('Hipparcos/Hipparcos.Hp_MvB', 'Hipparcos.Hipparcos.Hp_MvB'),
         'hp': ('Hipparcos/Hipparcos.Hp_MvB', 'Hipparcos.Hipparcos.Hp_MvB'),
         'cousins u': ('Generic/Cousins.U', 'Cousins.U'),
@@ -268,14 +580,19 @@ def match_filters(filt_name, verbose=False):
         'cousins b': ('Generic/Cousins.B', 'Cousins.B'),
         'bc': ('Generic/Cousins.B', 'Cousins.B'),
         'cousins r': ('Generic/Cousins.R', 'Cousins.R'),
+        'ground_cousins_r': ('Generic/Cousins.R', 'Cousins.R'),
         'rc': ('Generic/Cousins.R', 'Cousins.R'),
         'cousins i': ('Generic/Cousins.I', 'Cousins.I'),
+        'ground_cousins_i': ('Generic/Cousins.I', 'Cousins.I'),
         'ic': ('Generic/Cousins.I', 'Cousins.I'),
         'johnson u': ('Generic/Johnson_UBVRIJHKL.U', 'Johnson.U'),
+        'ground_johnson_u': ('Generic/Johnson_UBVRIJHKL.U', 'Johnson.U'),
         'u': ('Generic/Johnson_UBVRIJHKL.U', 'Johnson.U'),
         'johnson v': ('Generic/Johnson_UBVRIJHKL.V', 'Johnson.V'),
+        'ground_johnson_v': ('Generic/Johnson_UBVRIJHKL.V', 'Johnson.V'),
         'v': ('Generic/Johnson_UBVRIJHKL.V', 'Johnson.V'),
         'johnson b': ('Generic/Johnson_UBVRIJHKL.B', 'Johnson.B'),
+        'ground_johnson_b': ('Generic/Johnson_UBVRIJHKL.B', 'Johnson.B'),
         'b': ('Generic/Johnson_UBVRIJHKL.B', 'Johnson.B'),
         'johnson r': ('Generic/Johnson_UBVRIJHKL.R', 'Johnson.R'),
         'r': ('Generic/Johnson_UBVRIJHKL.R', 'Johnson.R'),
@@ -288,45 +605,66 @@ def match_filters(filt_name, verbose=False):
         'johnson h': ('Generic/Johnson_UBVRIJHKL.H', 'Johnson.H'),
         'h': ('Generic/Johnson_UBVRIJHKL.H', 'Johnson.H'),
         'stromgren v': ('Generic/Stromgren.v', 'Stromgren.v'),
+        'stromgren_v': ('Generic/Stromgren.v', 'Stromgren.v'),
+        'stromgren u': ('Generic/Stromgren.u', 'Stromgren.u'),
+        'stromgren_u': ('Generic/Stromgren.u', 'Stromgren.u'),
         'sv': ('Generic/Stromgren.v', 'Stromgren.v'),
         'stromgren b': ('Generic/Stromgren.b', 'Stromgren.b'),
+        'stromgren_b': ('Generic/Stromgren.b', 'Stromgren.b'),
         'sb': ('Generic/Stromgren.b', 'Stromgren.b'),
-        'stromgren y': ('Generic/Stromgren.y', 'Stromgren.v'),
-        'sy': ('Generic/Stromgren.y', 'Stromgren.v'),
+        'stromgren y': ('Generic/Stromgren.y', 'Stromgren.y'),
+        'stromgren_y': ('Generic/Stromgren.y', 'Stromgren.y'),
+        'sy': ('Generic/Stromgren.y', 'Stromgren.y'),
         'tess': ('TESS/TESS.Red', 'TESS.TESS.Red'),
         'tess t': ('TESS/TESS.Red', 'TESS.TESS.Red'),
         't': ('TESS/TESS.Red', 'TESS.TESS.Red'),
         'galex fuv': ('GALEX/GALEX.FUV', 'Galaex.FUV'),
+        'galex_fuv': ('GALEX/GALEX.FUV', 'Galaex.FUV'),
         'gfuv': ('GALEX/GALEX.FUV', 'Galaex.FUV'),
         'galex nuv': ('GALEX/GALEX.NUV', 'Galaex.NUV'),
+        'galex_nuv': ('GALEX/GALEX.NUV', 'Galaex.NUV'),
         'gnuv': ('GALEX/GALEX.NUV', 'Galaex.NUV'),
         'ps1 g': ('PAN-STARRS/PS1.g', 'PAN-STARRS.PS1.g'),
+        'ps1_g': ('PAN-STARRS/PS1.g', 'PAN-STARRS.PS1.g'),
         'panstarrs g': ('PAN-STARRS/PS1.g', 'PAN-STARRS.PS1.g'),
         'ps1 r': ('PAN-STARRS/PS1.r', 'PAN-STARRS.PS1.r'),
+        'ps1_r': ('PAN-STARRS/PS1.r', 'PAN-STARRS.PS1.r'),
         'panstarrs r': ('PAN-STARRS/PS1.r', 'PAN-STARRS.PS1.r'),
         'ps1 i': ('PAN-STARRS/PS1.i', 'PAN-STARRS.PS1.i'),
+        'ps1_i': ('PAN-STARRS/PS1.i', 'PAN-STARRS.PS1.i'),
         'panstarrs i': ('PAN-STARRS/PS1.i', 'PAN-STARRS.PS1.i'),
         'ps1 z': ('PAN-STARRS/PS1.z', 'PAN-STARRS.PS1.z'),
+        'ps1_z': ('PAN-STARRS/PS1.z', 'PAN-STARRS.PS1.z'),
         'panstarrs z': ('PAN-STARRS/PS1.z', 'PAN-STARRS.PS1.z'),
         'ps1 y': ('PAN-STARRS/PS1.y', 'PAN-STARRS.PS1.y'),
+        'ps1_y': ('PAN-STARRS/PS1.y', 'PAN-STARRS.PS1.y'),
         'panstarrs y': ('PAN-STARRS/PS1.y', 'PAN-STARRS.PS1.y'),
         'sdss u': ('SLOAN/SDSS.u', 'SDSS.u'),
+        'sdss_u': ('SLOAN/SDSS.u', 'SDSS.u'),
         'sloan u': ('SLOAN/SDSS.u', 'SDSS.u'),
         'sdss g': ('SLOAN/SDSS.g', 'SDSS.g'),
+        'sdss_g': ('SLOAN/SDSS.g', 'SDSS.g'),
         'sloan g': ('SLOAN/SDSS.g', 'SDSS.g'),
         'sdss r': ('SLOAN/SDSS.r', 'SDSS.r'),
+        'sdss_r': ('SLOAN/SDSS.r', 'SDSS.r'),
         'sloan r': ('SLOAN/SDSS.r', 'SDSS.r'),
         'sdss i': ('SLOAN/SDSS.i', 'SDSS.i'),
+        'sdss_i': ('SLOAN/SDSS.i', 'SDSS.i'),
         'sloan i': ('SLOAN/SDSS.i', 'SDSS.i'),
         'sdss z': ('SLOAN/SDSS.z', 'SDSS.z'),
+        'sdss_z': ('SLOAN/SDSS.z', 'SDSS.z'),
         'sloan z': ('SLOAN/SDSS.z', 'SDSS.z'),
         'wise w1': ('WISE/WISE.W1', 'WISE.W1'),
+        'wise_rsr_w1': ('WISE/WISE.W1', 'WISE.W1'),
         'w1': ('WISE/WISE.W1', 'WISE.W1'),
         'wise w2': ('WISE/WISE.W2', 'WISE.W2'),
+        'wise_rsr_w2': ('WISE/WISE.W2', 'WISE.W2'),
         'w2': ('WISE/WISE.W2', 'WISE.W2'),
         'wise w3': ('WISE/WISE.W3', 'WISE.W3'),
+        'wise_rsr_w3': ('WISE/WISE.W3', 'WISE.W3'),
         'w3': ('WISE/WISE.W3', 'WISE.W3'),
         'wise w4': ('WISE/WISE.W4', 'WISE.W4'),
+        'wise_rsr_w4': ('WISE/WISE.W4', 'WISE.W4'),
         'w4': ('WISE/WISE.W4', 'WISE.W4'),
         'xmm v': ('XMM/OM.V_filter', 'XMM-OT.V'),
         'xmm b': ('XMM/OM.B_filter', 'XMM-OT.B'),
@@ -442,7 +780,8 @@ def get_zpts(df, verbose=False):
 
     return df
 
-def read_in_photometry(filename, verbose = False):
+
+def read_in_photometry(filename, verbose=False):
     ##########################################################
     # Function: read_in_photometry                           #
     # Inputs:                                                #
@@ -463,32 +802,39 @@ def read_in_photometry(filename, verbose = False):
     #   10. Adds units to data in Table.                     #
     #   11. Returns astropy Table in format for SEDFit       #
     ##########################################################
-    phot = pd.read_csv(filename)
+    if filename.endswith('.csv'):
+        phot = pd.read_csv(filename)
+    elif filename.endswith('dat'):
+        phot = pd.read_csv(filename, sep='\s', skiprows=1, header=None)
+        phot.columns = ['Filter', 'Magnitude', 'Error']
+
     phot1 = set_filters(phot)
     phot2 = get_zpts(phot1)
     mag = phot2['Magnitude']
     dmag = phot2['Error']
-    zptf = phot2['ZPT']*(1e-9)
-    dzptf = phot2['ZPT_err']*(1e-9)
+    zptf = phot2['ZPT'] * (1e-9)
+    dzptf = phot2['ZPT_err'] * (1e-9)
     wave = phot2['Ref wavelength']
-    pbwidth = phot['Effective width']/2
+    pbwidth = phot['Effective width'] / 2
 
-    flux = (zptf)*(10**(-0.4*(mag)))
-    #Calculating the error for the new fluxes
-    term1 = (10**(-0.4*mag))*(dzptf)
-    term2 = -0.4*np.log(10)*(zptf)*(10**(-0.4*mag))*dmag
-    flux_err = np.sqrt(term1**2 + term2**2)
+    flux = (zptf) * (10 ** (-0.4 * (mag)))
+    # Calculating the error for the new fluxes
+    term1 = (10 ** (-0.4 * mag)) * (dzptf)
+    term2 = -0.4 * np.log(10) * (zptf) * (10 ** (-0.4 * mag)) * dmag
+    flux_err = np.sqrt(term1 ** 2 + term2 ** 2)
     name = phot2['Filter']
-    idx = np.arange(0,len(flux), 1)
+    idx = np.arange(0, len(flux), 1)
 
-    new_phot = pd.DataFrame({'index': idx,'sed_filter':phot['SED Filter name'], 'la':wave, 'width':pbwidth, 'flux':flux, 'eflux':flux_err})
+    new_phot = pd.DataFrame(
+        {'index': idx, 'sed_filter': phot['SED Filter name'], 'la': wave, 'width': pbwidth, 'flux': flux,
+         'eflux': flux_err})
     new_sed = Table.from_pandas(new_phot)
     new_sed['la'].unit = u.AA
     new_sed['width'].unit = u.AA
-    new_sed['flux'] = np.log10(flux*wave)
-    new_sed['eflux'] = 0.434*(flux_err/flux)
-    new_sed['flux'].unit = u.erg/u.s/(u.cm**2)/u.AA
-    new_sed['eflux'].unit = u.erg/u.s/(u.cm**2)/u.AA
+    new_sed['flux'] = np.log10(flux * wave)
+    new_sed['eflux'] = 0.434 * (flux_err / flux)
+    new_sed['flux'].unit = u.erg / u.s / (u.cm ** 2) / u.AA
+    new_sed['eflux'].unit = u.erg / u.s / (u.cm ** 2) / u.AA
 
     if verbose:
         new_sed
