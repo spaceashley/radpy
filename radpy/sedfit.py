@@ -1225,7 +1225,7 @@ def setaxislabels(unit, fbol_lam=False):
             ylab = r'$\rm \lambda F_{\lambda}~[\frac{erg}{cm^{2}~s}$]'
         else:
             ylab = r'$\rm F_{\lambda}~[\frac{erg}{cm^{2}~s~\mu m}$]'
-        return xlab, ylabs
+        return xlab, ylab
 
 def set_axis_limits(mw, mf, unit, fbol_lam = False):
     ##########################################################
