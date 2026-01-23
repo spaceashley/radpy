@@ -50,8 +50,8 @@ def definefilter(self, tmass=True, cousins=True, gaia=True, galex=True, johnson=
                 self.sed['sed_filter'] = self.sed['sed_filter'].astype(str)
 
             filters = ['2MASS.J', '2MASS.H', '2MASS.Ks']
-            width = np.array([0.152, 0.241, 0.251]) / 2 * u.micron
-            la = np.array([12350, 16620, 21590]) * u.AA
+            width = np.array([0.152026, 0.241018, 0.250619]) / 2 * u.micron
+            la = np.array([12393.09, 16494.95, 21638.61]) * u.AA
             ind = np.array([39, 41, 43])
             idx.extend(self.selectflux(filters, width, la, ind, new=new, empty=empty))
         if cousins:
@@ -75,8 +75,8 @@ def definefilter(self, tmass=True, cousins=True, gaia=True, galex=True, johnson=
         if johnson:
             filters = ['Johnson.U', 'Johnson.B', 'Johnson.V', 'Johnson.R', 'Johnson.I', 'Johnson.J', 'Johnson.K',
                        'Johnson.H']
-            width = np.array([0.0657, 0.09725, 0.08898, 0.207, 0.2316, 0.319355, 0.5785, 0.286263]) / 2 * u.micron
-            la = np.array([3511.89, 4390.21, 5501.4, 6819.05, 8674.2, 12317.3, 21735.85, 16396.38]) * u.AA
+            width = np.array([0.0657, 0.10117, 0.08898, 0.207, 0.2316, 0.319355, 0.5785, 0.286263]) / 2 * u.micron
+            la = np.array([3511.89, 4382.77, 5501.4, 6819.05, 8657.44, 12317.3, 21735.85, 16396.38]) * u.AA
             ind = np.array([9, 13, 23, 29, 36, 40, 44, 42])
             idx.extend(self.selectflux(filters, width, la, ind, new=new, empty=empty))
         if panstarrs:
@@ -93,10 +93,10 @@ def definefilter(self, tmass=True, cousins=True, gaia=True, galex=True, johnson=
             ind = np.array([8, 17, 26, 31, 37])
             idx.extend(self.selectflux(filters, width, la, ind, new=new, empty=empty))
         if wise:
-            filters = ['WISE.W1', 'WISE.W2', 'WISE.W3']
-            width = np.array([0.662642, 0.662642, 5.505523]) / 2 * u.micron
-            la = np.array([33526, 46028, 115608]) * u.AA
-            ind = np.array([45, 48, 51])
+            filters = ['WISE.W1', 'WISE.W2', 'WISE.W3', 'WISE.W4']
+            width = np.array([0.662642, 1.042266, 5.505523, 4.10168]) / 2 * u.micron
+            la = np.array([33682.21, 46179.06, 120718.12, 221944.04]) * u.AA
+            ind = np.array([45, 48, 51, 53])
             idx.extend(self.selectflux(filters, width, la, ind, new=new, empty=empty))
         if xmm:
             filters = ['XMM-OT.V', 'XMM-OT.B', 'XMM-OT.U', 'XMM-OT.UVW1', 'XMM-OT.UVM2', 'XMM-OT.UVW2']
