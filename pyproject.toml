@@ -24,8 +24,6 @@ scipy = ">=1.10.0"
 gaiadr3-zeropoint = ">=0.0.4"
 uncertainties = ">=3.1.7"
 
-
-
 [tool.poetry.urls]
 repository = "https://github.com/spaceashley/radpy.git"
 
