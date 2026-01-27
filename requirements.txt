@@ -12,3 +12,4 @@ pickle
 contextlib
 pkg_resources
 SEDFit
+astroariadne

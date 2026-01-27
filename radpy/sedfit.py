@@ -17,7 +17,7 @@ from astroARIADNE.star import Star
 from astroquery.simbad import Simbad
 from astroARIADNE.fitter import Fitter
 from astropy import coordinates as coord
-from radpy.stellar import check_if_string
+from radpy.stellar import check_if_string, use_hipparcos
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -252,8 +252,8 @@ def pull_gaia_id(starid, star, verbose = False):
             if simbad_result is None:
                 if verbose:
                     print(f"No results found in Simbad for {star_name}")
-                    d, dd = use_hipparcos(star_name, plx, dplx, verbose)
-                return round(d, 5), round(d, dd)
+                    #d, dd = use_hipparcos(star_name, plx, dplx, verbose)
+                #return round(d, 5), round(d, dd)
 
             # Find the column name for 'id' (case-insensitive)
             id_col = next((col for col in simbad_result.colnames if col.lower() == "id"), None)
@@ -1325,11 +1325,11 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
 
                 # y ticks
                 y_loc = np.linspace(0, ymax / (10 ** exp), 4)
-                y_labels = [f'{round(val)}' for val in y_loc]
+                y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
 
                 # x ticks
                 x_loc = np.linspace(round(xmin), round(xmax), 5)
-                x_labels = [f'{round(val)}' for val in x_loc]
+                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
 
                 return x_loc, x_labels, y_loc, y_labels
             else:
@@ -1338,11 +1338,11 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
 
                 # y ticks
                 y_loc = np.linspace(0, ymax / (10 ** exp), 4)
-                y_labels = [f'{round(val)}' for val in y_loc]
+                y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
 
                 # x ticks
                 x_loc = np.linspace(round(xmin), round(xmax), 5)
-                x_labels = [f'{round(val)}' for val in x_loc]
+                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
 
                 return x_loc, x_labels, y_loc, y_labels
 
@@ -1381,7 +1381,7 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
                         xl.append(round(xloc))
                         x_loc.append(np.log10(round(xloc)))
 
-            x_labels = [f'{(val)}' for val in xl]
+            x_labels = [rf'$\rm {(val)}$' for val in xl]
 
             return x_loc, x_labels, y_loc, y_labels
         else:
@@ -1393,7 +1393,7 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
                 # y ticks
                 yloc = np.linspace(0, ymax / (10 ** exp), 4)
                 y_loc = [round(val) for val in yloc]
-                y_labels = [f'{round(val)}' for val in y_loc]
+                y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
 
                 # x ticks
                 xloc = np.linspace(xmin, xmax, 5)
@@ -1401,7 +1401,7 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
                     x_loc = [round(val, -3) for val in xloc]
                 if unit == 'micron':
                     x_loc = [round(val) for val in xloc]
-                x_labels = [f'{round(val)}' for val in x_loc]
+                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
 
                 return x_loc, x_labels, y_loc, y_labels
             else:
@@ -1411,7 +1411,7 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
                 # y ticks
                 yloc = np.linspace(0, ymax / (10 ** exp), 4)
                 y_loc = [round(val) for val in yloc]
-                y_labels = [f'{round(val)}' for val in y_loc]
+                y_labels = [rf'$ \rm {round(val)}$' for val in y_loc]
 
                 # x ticks
                 xloc = np.linspace(xmin, xmax, 5)
@@ -1419,7 +1419,7 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
                     x_loc = [round(val, -3) for val in xloc]
                 if unit == 'micron':
                     x_loc = [round(val) for val in xloc]
-                x_labels = [f'{round(val)}' for val in x_loc]
+                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
 
                 return x_loc, x_labels, y_loc, y_labels
 
@@ -1510,14 +1510,14 @@ def set_res_axis(res):
     res_axis_max = maxres+0.05
 
     res_loc = [minres, 0, maxres]
-    res_labels = [f'{val}' for val in res_loc]
+    res_labels = [rf'$\rm {val}$' for val in res_loc]
 
     #print(res_loc)
     #print(res_labels)
 
     return res_axis_min, res_axis_max, res_loc, res_labels
 
-def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, savefig=None, show=True, verbose=False):
+def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, savefig=None, uselatex = False, show=True, verbose=False):
     ##########################################################
     # Function: plot_sed                                     #
     # Inputs:                                                #
@@ -1548,7 +1548,7 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
     plt.rcParams.update({'font.size': 15})
     plt.rcParams['xtick.direction'] = 'in'
     plt.rcParams['ytick.direction'] = 'in'
-    plt.rcParams['text.usetex'] = False
+    plt.rcParams['text.usetex'] = uselatex
 
     f, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [10, 3]}, sharex=True)
 
