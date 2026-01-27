@@ -27,6 +27,54 @@ The installation should also install all necessary additional packages you need 
 - `astroquery`
 - `gaiadr3-zeropoint`
 
+If you would like to use the SED fitting feature, there are some additional packages you need to make sure that you have installed. 
+- `SEDFit`
+- `astroARIADNE`
+
+These two packages have to be installed separately outside of `RADPy` due to some technical issues. The instructions to download them are below. Please note that if you are a Windows user, you will need to run a virtual environment that runs a linux or OS distribution. I recommend using WSL. The two packages are have dependencies that are not compatible with Windows machines. 
+
+`SEDFit`:
+
+The installation of this package requires a few additional packages that are unfortunately not compatible with windows machines. This will require the use of a virtual environment like WSL. 
+
+To install this package, use the following command:
+
+`pip install git+https://github.com/mkounkel/SEDFit.git`
+
+In addition, there are filter profiles that need to be downloaded and moved to the directory where `SEDFit` was just installed. The filter profiles needed are:
+
+- GAIA.GAIA3.G
+- GAIA.GAIA3.Gbp
+- GAIA.GAIA3.Grp
+- Hipparcos.Hipparcos.Hp_MvB
+- Johnson.H
+- Johnson.J
+- Johnson.K
+- Stromgren.b.dat
+- Stromgren.u.dat
+- Stromgren.v.dat
+- Stromgren.y.dat
+- TESS.TESS.Red.dat
+- TYCHO.TYCHO.B_MvB
+- TYCHO.TYCHO.V_MvB
+
+You can download them from here: <https://github.com/spaceashley/radpy/tree/main/radpy/data>. 
+
+If you are interested in having `RADPy` pull photometry for your star for you, you need to install `astroARIADNE`. This package also has dependencies that are not compatible with Windows machines.
+
+To install this package:
+
+`pip install astroariadne`
+
+With `astroARIADNE`, follow their instructions. However, the dependencies that are required for this package aren't all up to date and/or aren't working properly. This is perfectly fine. You should be able to use the features of the SED fitter without an issue. If there is one, please submit an issue to the repo. 
+
+You can find more information about each package here:
+
+[`SEDFit'`](https://github.com/mkounkel/SEDFit)
+[`astroARIADNE`](https://github.com/jvines/astroARIADNE)
+
+
+
 To test if the installation worked, import `RADPy`. If you did not get an error, you should be all set. 
 
 `import radpy`
@@ -56,6 +104,7 @@ For a tutorial for single stars, go here: <https://github.com/spaceashley/radpy/
 
 For a tutorial on how to use batch mode, go here: <https://github.com/spaceashley/radpy/blob/main/tests/BatchModeTutorial.ipynb>
 
+For a tutorial on how to use the SED fitting feature, go here: <https://github.com/spaceashley/radpy/blob/main/tests/SED%20Fitting%20Tutorial.ipynb>
 
 ## How to Cite
 
@@ -64,6 +113,37 @@ If you use `RADPy` in your research, please cite it through the following:
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17488122.svg)](https://doi.org/10.5281/zenodo.17488122)
 
+In addition, if you decide to use the SED fitting feature and/or the photometry extraction for SED fitting, please cite the following as well:
+
+`astroARIADNE` (if using the photometry extraction for SED fitting):
+```
+@ARTICLE{2022MNRAS.tmp..920V,
+       author = {{Vines}, Jose I. and {Jenkins}, James S.},
+        title = "{ARIADNE: Measuring accurate and precise stellar parameters through SED fitting}",
+      journal = {\mnras},
+     keywords = {stars:atmospheres, methods:data analysis, stars:fundamental parameters, Astrophysics - Solar and Stellar Astrophysics, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2022,
+        month = apr,
+          doi = {10.1093/mnras/stac956},
+archivePrefix = {arXiv},
+       eprint = {2204.03769},
+ primaryClass = {astro-ph.SR},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2022MNRAS.tmp..920V},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
+
+`SEDFit` (if using the SED fitting feature):
+```
+@software{sedfit,
+	author = {{Kounkel}, Marina},
+	doi = {10.5281/zenodo.8076500},
+	month = jun,
+	publisher = {Zenodo},
+	title = {SEDFit},
+	url = {https://doi.org/10.5281/zenodo.8076500},
+	year = 2023}
+```
 
 ## Contact
 - Ashley Elliott (aelli76@lsu.edu)
