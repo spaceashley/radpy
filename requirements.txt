@@ -11,4 +11,3 @@ ipympl
 pickle
 contextlib
 pkg_resources
-astroariadne
