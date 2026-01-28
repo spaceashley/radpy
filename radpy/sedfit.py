@@ -1322,7 +1322,7 @@ def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_
                     else:
                         xl.append(round(xloc))
                         x_loc.append(np.log10(round(xloc)))
-            x_labels = [f'{(val)}' for val in xl]
+            x_labels = [rf'${(val)}$' for val in xl]
             return x_loc, x_labels, y_loc, y_labels
         else:
             if fbol_lam:
