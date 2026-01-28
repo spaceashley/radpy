@@ -84,6 +84,7 @@ However, the dependencies that are required for this package aren't all up to da
 You can find more information about each package here:
 
 [`SEDFit'`](https://github.com/mkounkel/SEDFit)
+
 [`astroARIADNE`](https://github.com/jvines/astroARIADNE)
 
 
