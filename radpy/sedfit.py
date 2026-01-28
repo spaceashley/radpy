@@ -2,22 +2,28 @@ import io
 import os
 import math
 import pickle
+import pyphot
 import contextlib
 import numpy as np
 import pandas as pd
+import dustmaps.sfd
 import pkg_resources
 from SEDFit.sed import SEDFit
 from astropy import units as u
 import matplotlib.pyplot as plt
 from astropy.table import Table
 from scipy.integrate import quad
-from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 from radpy.config import svopath
 from astroARIADNE.star import Star
 from astroquery.simbad import Simbad
 from astroARIADNE.fitter import Fitter
 from astropy import coordinates as coord
-from radpy.stellar import check_if_string, use_hipparcos
+from radpy.stellar import check_if_string
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+
+pyphot.config.set_units_backend('pint')
+dustmaps.sfd.fetch()
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -804,8 +810,8 @@ def read_in_photometry(filename, verbose=False):
     ##########################################################
     if filename.endswith('.csv'):
         phot = pd.read_csv(filename)
-    elif filename.endswith('dat'):
-        phot = pd.read_csv(filename, sep='\s', skiprows=1, header=None)
+    elif filename.endswith('.dat'):
+        phot = pd.read_csv(filename, sep='\s+', skiprows=1, header=None)
         phot.columns = ['Filter', 'Magnitude', 'Error']
 
     phot1 = set_filters(phot)
@@ -925,8 +931,8 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
     #   12. Returns the SED object                           #
     ##########################################################
     d = star.dist
-    ra = star.ra
-    dec = star.dec
+    ra = star.ra_hms
+    dec = star.dec_dms
 
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
