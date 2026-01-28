@@ -19,7 +19,9 @@
 
 Simply use pip to install `RADPy`. Due to naming conflicts, to install `RADPy`, you must use "rsadpy". 
 
-`pip install rsadpy`
+```python
+pip install rsadpy
+```
 
 The installation should also install all necessary additional packages you need to run everything. Just in case, here is a list of all the necessary packages that aren't default:
 - `lmfit`
@@ -39,7 +41,9 @@ The installation of this package requires a few additional packages that are unf
 
 To install this package, use the following command:
 
-`pip install git+https://github.com/mkounkel/SEDFit.git`
+```python
+pip install git+https://github.com/mkounkel/SEDFit.git
+```
 
 In addition, there are filter profiles that need to be downloaded and moved to the directory where `SEDFit` was just installed. The filter profiles needed are:
 
@@ -64,20 +68,32 @@ If you are interested in having `RADPy` pull photometry for your star for you, y
 
 To install this package:
 
-`pip install astroariadne`
+```python 
+pip install astroariadne
+```
 
-With `astroARIADNE`, follow their instructions. However, the dependencies that are required for this package aren't all up to date and/or aren't working properly. This is perfectly fine. You should be able to use the features of the SED fitter without an issue. If there is one, please submit an issue to the repo. 
+With `astroARIADNE`, you also need to import the necessary dustmaps. 
+
+```python
+import dustmaps.sfd
+dustmaps.sfd.fetch()
+```
+
+However, the dependencies that are required for this package aren't all up to date and/or aren't working properly. This is perfectly fine. You should be able to use the features of the SED fitter without an issue. If there is one, please submit an issue to the repo. 
 
 You can find more information about each package here:
 
 [`SEDFit'`](https://github.com/mkounkel/SEDFit)
+
 [`astroARIADNE`](https://github.com/jvines/astroARIADNE)
 
 
 
 To test if the installation worked, import `RADPy`. If you did not get an error, you should be all set. 
 
-`import radpy`
+```python
+import radpy
+```
 
 NOTE: 
 
