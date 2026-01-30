@@ -37,6 +37,7 @@ def get_stellar_params(file_path):
             'Fehrange': row['fitfeh_range'],
             'fitAv': row['fitav'],
             'Avrange': row['fitav_range'],
+            'model': row['model'],
         }
     return star_names, params_dict, fitting_dict
 
@@ -48,6 +49,8 @@ def convert_fit_params(star_name, star, fit_params_dict, verbose=False):
     fitLG = fits['fitLogg']
     fitFEH = fits['fitFeh']
     fitAV = fits['fitAv']
+
+    model = fits['model']
 
     init_logg = star.logg
     init_feh = star.feh
@@ -74,7 +77,7 @@ def convert_fit_params(star_name, star, fit_params_dict, verbose=False):
     init_vals = [init_teff, init_logg, init_feh, init_av]
     ranges = [teff_range, logg_range, feh_range, av_range]
     fitflags = [fitT, fitLG, fitFEH, fitAV]
-    return init_vals, ranges, fitflags
+    return init_vals, ranges, fitflags, model
 
 
 def create_photometry_file(star_id, out_dir, verbose=False):
@@ -135,8 +138,8 @@ def write_table(df, out_dir, out_file):
     df.to_csv(out_file, sep='\t', index=False)
 
 
-def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fitting_param_dict, model, unit, set_axis,
-                     image_ext, result_rows, diam_rows,
+def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fitting_param_dict, unit, set_axis, image_ext,
+                     result_rows, diam_rows,
                      uselatex, logplot, fbol_lam, own_photometry=False, verbose=False):
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
@@ -170,7 +173,7 @@ def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fittin
     star.dist = D
     star.dist_err = dD
 
-    init_values, fit_ranges, fit_flags = convert_fit_params(star_name, star, fitting_param_dict, verbose=False)
+    init_values, fit_ranges, fit_flags, model = convert_fit_params(star_name, star, fitting_param_dict, verbose=False)
 
     sed_fit = fit_sed(phot_data, star, init_values, model, teffrange=fit_ranges[0], loggrange=fit_ranges[1],
                       fehrange=fit_ranges[2], avrange=fit_ranges[3], fitT=fit_flags[0],
@@ -207,8 +210,8 @@ def sed_batchmode(starfile, data_dir, out_dir, res_out, diam_out, unit, set_axis
     diam_rows = []
     count = 0
     for star_name in star_names:
-        sed_process_star(star_name, data_dir, out_dir, star_params, fit_params, model, unit, set_axis, image_ext,
-                         res_rows, diam_rows, uselatex,
+        sed_process_star(star_name, data_dir, out_dir, star_params, fit_params, unit, set_axis, image_ext, res_rows,
+                         diam_rows, uselatex,
                          logplot, fbol_lam, own_photometry=own_photometry, verbose=verbose)
         count += 1
 
@@ -218,4 +221,5 @@ def sed_batchmode(starfile, data_dir, out_dir, res_out, diam_out, unit, set_axis
     write_table(res_df, out_dir, res_out)
     write_table(diam_df, out_dir, diam_out)
 
-    print(f"Batch complete. Fit {count} stars. Plots in {os.path.join(out_dir, 'plots')}, SED fit results in {res_out}, File for diameter fitting in {diam_out}")
+    print(
+        f"Batch complete. Fit {count} stars. Plots in {os.path.join(out_dir, 'plots')}, SED fit results in {res_out}, File for diameter fitting in {diam_out}")
