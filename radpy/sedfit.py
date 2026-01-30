@@ -517,14 +517,14 @@ def save_photometry(starid, phot_obj, out_dir, verbose=False):
         print(f"Directory '{out_dir}' created successfully or already exists.")
     except OSError as e:
         print(f"Error creating directory {out_dir}: {e}")
-
+    star_id = starid.replace(" ", "")
     f = Fitter()
     f.star = phot_obj
     f.out_folder = out_dir
-    f.star.save_mags(f.out_folder + '/' + starid)
+    f.star.save_mags(f.out_folder + '/' + star_id)
     if verbose:
-        print('File saved:', os.getcwd() + '/' + f.out_folder + '/' + starid + 'mags.dat')
-    fn = os.getcwd() + '/' + f.out_folder + '/' + starid + 'mags.dat'
+        print('File saved:', os.getcwd() + '/' + f.out_folder + '/' + star_id + 'mags.dat')
+    fn = os.getcwd() + '/' + f.out_folder + '/' + star_id + 'mags.dat'
     return fn
 
 
@@ -624,12 +624,12 @@ def match_filters(filt_name, verbose=False):
         'tess': ('TESS/TESS.Red', 'TESS.TESS.Red'),
         'tess t': ('TESS/TESS.Red', 'TESS.TESS.Red'),
         't': ('TESS/TESS.Red', 'TESS.TESS.Red'),
-        'galex fuv': ('GALEX/GALEX.FUV', 'Galaex.FUV'),
-        'galex_fuv': ('GALEX/GALEX.FUV', 'Galaex.FUV'),
-        'gfuv': ('GALEX/GALEX.FUV', 'Galaex.FUV'),
-        'galex nuv': ('GALEX/GALEX.NUV', 'Galaex.NUV'),
-        'galex_nuv': ('GALEX/GALEX.NUV', 'Galaex.NUV'),
-        'gnuv': ('GALEX/GALEX.NUV', 'Galaex.NUV'),
+        'galex fuv': ('GALEX/GALEX.FUV', 'Galex.FUV'),
+        'galex_fuv': ('GALEX/GALEX.FUV', 'Galex.FUV'),
+        'gfuv': ('GALEX/GALEX.FUV', 'Galex.FUV'),
+        'galex nuv': ('GALEX/GALEX.NUV', 'Galex.NUV'),
+        'galex_nuv': ('GALEX/GALEX.NUV', 'Galex.NUV'),
+        'gnuv': ('GALEX/GALEX.NUV', 'Galex.NUV'),
         'ps1 g': ('PAN-STARRS/PS1.g', 'PAN-STARRS.PS1.g'),
         'ps1_g': ('PAN-STARRS/PS1.g', 'PAN-STARRS.PS1.g'),
         'panstarrs g': ('PAN-STARRS/PS1.g', 'PAN-STARRS.PS1.g'),

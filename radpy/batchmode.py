@@ -396,7 +396,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         title=star_title[0],
         show=False
     )
-    save_plot(fig1, plot_dir, star_id, "UDfit", image_ext)
+    starID = star_name.replace(" ", "")
+    save_plot(fig1, plot_dir, starID, "UDfit", image_ext)
 
     # Limb-darkened R band plot
     fig2, _ = plot_v2_fit(
@@ -411,7 +412,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         eq_text=True,
         show=False
     )
-    save_plot(fig2, plot_dir, star_id, "LDfit", image_ext)
+    save_plot(fig2, plot_dir, starID, "LDfit", image_ext)
 
     # Collect results for LaTeX
     if v0_flag:
