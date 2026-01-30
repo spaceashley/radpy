@@ -1,5 +1,6 @@
 import io
 import os
+import ast
 import math
 import pickle
 import pyphot
@@ -26,6 +27,10 @@ dustmaps.sfd.fetch()
 
 import warnings
 warnings.filterwarnings("ignore")
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable GPU
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  #suppress everything but error messages
+import tensorflow as tf
 
 #%% Rewrite of the SEDFit functions
 def definefilter(self, tmass=True, cousins=True, gaia=True, galex=True, johnson=True,
@@ -379,10 +384,10 @@ def add_photometry(phot_obj, filter_name, mag, mag_err, verbose = False):
         'tess': ('TESS'),
         'tess t': ('TESS'),
         't': ('TESS'),
-        'galex fuv': ('Galex_FUV'),
-        'gfuv': ('Galex_FUV'),
-        'galex nuv': ('Galex_NUV'),
-        'gnuv': ('Galex_NUV'),
+        'galex fuv': ('GALEX_FUV'),
+        'gfuv': ('GALEX_FUV'),
+        'galex nuv': ('GALEX_NUV'),
+        'gnuv': ('GALEX_NUV'),
         'ps1 g': ('PS1_g'),
         'panstarrs g': ('PS1_g'),
         'ps1 r': ('PS1_r'),
@@ -467,10 +472,10 @@ def remove_photometry(phot_obj, filter_name, verbose = False):
         'tess': ('TESS'),
         'tess t': ('TESS'),
         't': ('TESS'),
-        'galex fuv': ('Galex_FUV'),
-        'gfuv': ('Galex_FUV'),
-        'galex nuv': ('Galex_NUV'),
-        'gnuv': ('Galex_NUV'),
+        'galex fuv': ('GALEX_FUV'),
+        'gfuv': ('GALEX_FUV'),
+        'galex nuv': ('GALEX_NUV'),
+        'gnuv': ('GALEX_NUV'),
         'ps1 g': ('PS1_g'),
         'panstarrs g': ('PS1_g'),
         'ps1 r': ('PS1_r'),
@@ -1124,8 +1129,9 @@ def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
         litp_dxvals = 0.434 * (idwave / iwave)
         synth_yvals = np.log10(msf * iwave)
         res = litp_yvals - synth_yvals
+        exp = 0
 
-        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res
+        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res, exp
 
     if logplot and not fbol_lam:
         # print('set values Log and no lambda')
@@ -1137,9 +1143,8 @@ def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
         litp_dxvals = 0.434 * (idwave / iwave)
         synth_yvals = np.log10(msf)
         res = litp_yvals - synth_yvals
-        # print('Log plot and no lambda')
-        # print(res)
-        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res
+        exp = 0
+        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res, exp
 
     if not logplot and not fbol_lam:
         # print('set values No log and no lambda')
@@ -1154,12 +1159,10 @@ def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
         litp_dxvals = idwave
         synth_yvals = msf / (10 ** exp)
         res = litp_yvals - synth_yvals
-        # print('No log and no lambda')
-        # print(res)
-        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res
+
+        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res, exp
 
     if not logplot and fbol_lam:
-        # print('set values No log but lambda')
         number = (iflux[0] * iwave[0])
         _, exp = normalize_number(number)
         # print('Dividing by:', exp)
@@ -1171,7 +1174,8 @@ def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
         litp_dxvals = idwave
         synth_yvals = (msf * iwave) / (10 ** exp)
         res = litp_yvals - synth_yvals
-        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res
+
+        return model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res, exp
 
 
 def normalize_number(num):
@@ -1202,7 +1206,7 @@ def normalize_number(num):
 
     return normalized_num, exponent
 
-def setaxislabels(iwave, iflux, unit, logplot = False, fbol_lam = False):
+def setaxislabels(exp, unit, logplot = False, fbol_lam = False):
     ##########################################################
     # Function: setaxislabels                                #
     # Inputs:                                                #
@@ -1233,29 +1237,37 @@ def setaxislabels(iwave, iflux, unit, logplot = False, fbol_lam = False):
         return xlab, ylab
     else:
         if fbol_lam:
-            number = iflux[0] * iwave[0]
-            _, exp = normalize_number(number)
+            #print('Fbol lam')
+            #print('Exponent:', exp)
             if exp < 0:
+                #print('Exp < 0')
                 ylab = rf'$\rm \lambda F_{{\lambda}}~[\times 10^{{{exp}}}~\frac{{\rm erg}}{{\rm cm^2~s}}]$'
             if unit == 'AA':
+                #print('angstroms')
                 xlab = r'$\rm Wavelength~[\AA]$'
             elif unit == 'micron':
+                #print('Microns')
                 xlab = r'$\rm Wavelength~[\mu m]$'
             return xlab, ylab
         else:
-            number = iflux[0]
-            _, exp = normalize_number(number)
+            #print('No fbol lam')
+            #print('Exoponent:', exp)
             if unit == 'AA':
+                #print('Angstroms')
                 xlab = r'$\rm Wavelength~[\AA]$'
                 if exp < 0:
+                    #print('exp < 0')
                     ylab = rf'$\rm F_{{\lambda}}~[\times 10^{{{exp}}}~\frac{{\rm erg}}{{\rm cm^2~s~\AA}}]$'
             elif unit == 'micron':
+                #print('Microns')
                 xlab = r'$\rm Wavelength~[\mu m]$'
                 if exp < 0:
+                    #print('Exp < 0')
                     ylab = rf'$\rm F_{{\lambda}}~[\times 10^{{{exp}}}~\frac{{\rm erg}}{{\rm cm^2~s~\mu m}}]$'
-        return xlab, ylab
+            return xlab, ylab
 
-def set_axis_limits(w, f, unit, fbol_lam = False):
+
+def set_radpy_axis_limits(w, f, exp, unit, logplot):
     ##########################################################
     # Function: set_axis_labels                              #
     # Inputs:                                                #
@@ -1272,254 +1284,218 @@ def set_axis_limits(w, f, unit, fbol_lam = False):
     #       arrays  and maxs of the arrays                   #
     #    2. Returns the sxis limits                          #
     ##########################################################
+    xmin = min(w)
+    xmax = max(w)
+    ymin = min(f)
+    ymax = max(f)
+
     if unit == 'AA':
-        # print('Angstrom')
-        if fbol_lam:
-            # print('F x Lambda')
-            set_axis = [round(min(w)), round(max(w)), min(f * w), max(f * w)]
-            return set_axis
+        if logplot:
+            Xmin = xmin - (xmin * 0.05)
+            Xmax = xmax + (xmax * 0.05)
+            Ymin = ymin + (ymin * 0.05)
+            Ymax = ymax - (ymax * 0.05)
+
+            new_axis = [round(Xmin, 1), round(Xmax, 1), round(Ymin) * (10 ** (exp)), round(Ymax) * (10 ** (exp))]
+
+            return new_axis
         else:
-            # print('F')
-            set_axis = [round(min(w)), round(max(w)), min(f), max(f)]
-            return set_axis
+            Xmin = xmin - (xmin * 0.1)
+            Xmax = xmax + (xmax * 0.1)
+            Ymin = ymin + (ymin * 0.1)
+            Ymax = ymax + (ymax * 0.2)
+
+            new_axis = [round(Xmin, -2), round(Xmax, -3), round(Ymin, 1) * (10 ** (exp)), round(Ymax) * (10 ** (exp))]
+
+            return new_axis
     if unit == 'micron':
-        # print('micron')
-        if fbol_lam:
-            # print('F x Lambda')
-            set_axis = [min(w), round(max(w)), min((f * w)), max((f * w))]
-            return set_axis
+        if logplot:
+            Xmin = xmin - (xmin * 0.05)
+            Xmax = xmax + (xmax * 0.05)
+            Ymin = ymin + (ymin * 0.01)
+            Ymax = ymax - (ymax * 0.01)
+
+            new_axis = [round(Xmin, 2), round(Xmax, 2), round(Ymin) * (10 ** (exp)), round(Ymax) * (10 ** (exp))]
+
+            return new_axis
         else:
-            # print('F')
-            set_axis = [min(w), round(max(w)), min(f), max(f)]
-            return set_axis
+            Xmin = xmin - (xmin * 0.05)
+            Xmax = xmax + (xmax * 0.05)
+            Ymin = ymin - (ymin * 0.05)
+            Ymax = ymax + (ymax * 0.1)
+
+            new_axis = [round(Xmin, 2), round(Xmax, 2), round(Ymin, 1) * (10 ** (exp)), round(Ymax, 1) * (10 ** (exp))]
+
+            return new_axis
 
 
-def setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_lam=False, verbose=False):
+def setaxisticklabels(iwave, iflux, exp, unit, set_axis, logplot=False, fbol_lam=False, verbose=False):
     if set_axis:
         xmin = set_axis[0]
         xmax = set_axis[1]
         ymin = set_axis[2]
         ymax = set_axis[3]
-        if logplot:
-            # y-ticks
-            y_loc = [round(ymin), round(ymax)]
-            y_labels = [rf'$10^{{{y_loc[0]}}}$', rf'$10^{{{y_loc[1]}}}$']
-
-            # x-ticks
-            xaxis = np.linspace(xmin, xmax, 5)
-            x_loc = []
-            xl = []
-            for i in range(len(xaxis)):
-                xloc = (10 ** (xaxis[i]))
-
-                if unit == 'AA':
-                    xl.append(int((round(xloc, -3))))
-                    x_loc.append(np.log10((round(xloc, -3))))
-                if unit == 'micron':
-                    if xloc < 1:
-                        xl.append(round(xloc, 1))
-                        x_loc.append(np.log10(round(xloc, 1)))
-                    else:
-                        xl.append(round(xloc))
-                        x_loc.append(np.log10(round(xloc)))
-            x_labels = [rf'${(val)}$' for val in xl]
-            return x_loc, x_labels, y_loc, y_labels
-        else:
-            if fbol_lam:
-                number = iflux[0] * iwave[0]
-                _, exp = normalize_number(number)
-
-                # y ticks
-                y_loc = np.linspace(0, ymax / (10 ** exp), 4)
-                y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
-
-                # x ticks
-                x_loc = np.linspace(round(xmin), round(xmax), 5)
-                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
-
-                return x_loc, x_labels, y_loc, y_labels
-            else:
-                number = iflux[0]
-                _, exp = normalize_number(number)
-
-                # y ticks
-                y_loc = np.linspace(0, ymax / (10 ** exp), 4)
-                y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
-
-                # x ticks
-                x_loc = np.linspace(round(xmin), round(xmax), 5)
-                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
-
-                return x_loc, x_labels, y_loc, y_labels
-
     elif set_axis is None:
-        set_axis = set_axis_limits(mw, mf, unit, fbol_lam=fbol_lam)
+        set_axis = set_radpy_axis_limits(iwave, iflux, exp, unit, logplot=logplot)
         xmin = set_axis[0]
         xmax = set_axis[1]
         ymin = set_axis[2]
         ymax = set_axis[3]
 
-        if logplot:
-            # print('Log plot')
-            xmin = round(np.log10(xmin), 1)
-            xmax = round(np.log10(xmax), 1)
-            ymin = round(np.log10(ymin), 1)
-            ymax = round(np.log10(ymax), 1)
+    if logplot:
+        xmin = round((xmin), 1)
+        xmax = round((xmax), 1)
+        ymin = round(ymin)
+        ymax = round(ymax)
+        # y ticks
+        y_loc = [ymin, ymax]
+        y_labels = [rf'$10^{{{y_loc[0]}}}$', rf'$10^{{{y_loc[1]}}}$']
+
+        # x ticks
+        xaxis = np.linspace(xmin, xmax, 5)
+        # xaxis is in np.log10 space
+        x_loc = []
+        xl = []
+        for i in range(len(xaxis)):
+            # converting out of log10 space
+            xloc = (10 ** (xaxis[i]))
+            if unit == 'AA':
+                # xlabel is out of log10 space
+                xl.append(int((round(xloc, -3))))
+                # xlocation is in log10 space
+                x_loc.append(np.log10((round(xloc, -3))))
+            if unit == 'micron':
+                if xloc < 0.8:
+                    # xlabel is out of log10 space
+                    xl.append(round(xloc, 1))
+                    # xlocation is in log10 space
+                    x_loc.append(np.log10(round(xloc, 1)))
+                else:
+                    # xlabel is out of log10 space
+                    xl.append(round(xloc))
+                    # xlocation is in log10 space
+                    x_loc.append(np.log10(round(xloc)))
+
+        x_labels = [rf'$\rm {(val)}$' for val in xl]
+        return x_loc, x_labels, y_loc, y_labels
+    else:
+        # y axis limits are in 10^exp space
+        if fbol_lam:
             # y ticks
-            y_loc = [round(ymin), round(ymax)]
-            y_labels = [rf'$10^{{{y_loc[0]}}}$', rf'$10^{{{y_loc[1]}}}$']
+            # taking the yvals out of 10^exp space
+            yloc = np.linspace(ymin / (10 ** exp), ymax / (10 ** exp), 4)
+            y_loc = [round(val) for val in yloc]
+            y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
 
             # x ticks
             xaxis = np.linspace(xmin, xmax, 5)
             x_loc = []
             xl = []
             for i in range(len(xaxis)):
-
-                xloc = (10 ** (xaxis[i]))
+                xloc = xaxis[i]
                 if unit == 'AA':
                     xl.append(int((round(xloc, -3))))
-                    x_loc.append(np.log10((round(xloc, -3))))
+                    x_loc.append((round(xloc, -3)))
                 if unit == 'micron':
-                    if xloc < 1:
-                        xl.append(round(xloc, 1))
-                        x_loc.append(np.log10(round(xloc, 1)))
-                    else:
+                    if xloc < 1 and xloc > 0:
+                        xl.append(round(xloc, 2))
+                        x_loc.append(round(xloc, 2))
+                    elif xloc == 0:
                         xl.append(round(xloc))
-                        x_loc.append(np.log10(round(xloc)))
+                        x_loc.append(round(xloc))
+                    else:
+                        if xloc % 1 < 0.5:
+                            xl.append(round(np.floor(xloc)))
+                            x_loc.append(round(np.floor(xloc)))
+                        elif xloc % 1 > 0.5:
+                            xl.append(round((xloc)))
+                            x_loc.append(round((xloc)))
 
-            x_labels = [rf'$\rm {(val)}$' for val in xl]
-
+            x_labels = [rf'${(val)}$' for val in xl]
             return x_loc, x_labels, y_loc, y_labels
         else:
-
-            if fbol_lam:
-                number = iflux[0] * iwave[0]
-                _, exp = normalize_number(number)
-
-                # y ticks
-                yloc = np.linspace(0, ymax / (10 ** exp), 4)
-                y_loc = [round(val) for val in yloc]
-                y_labels = [rf'$\rm {round(val)}$' for val in y_loc]
-
-                # x ticks
-                xloc = np.linspace(xmin, xmax, 5)
+            # y ticks
+            yloc = np.linspace(1, ymax / (10 ** exp), 4)
+            y_loc = [round(val) for val in yloc]
+            y_labels = [rf'$ \rm {round(val)}$' for val in y_loc]
+            # x ticks
+            xaxis = np.linspace(xmin, xmax, 5)
+            x_loc = []
+            xl = []
+            for i in range(len(xaxis)):
+                xloc = xaxis[i]
                 if unit == 'AA':
-                    x_loc = [round(val, -3) for val in xloc]
+                    xl.append(int((round(xloc, -3))))
+                    x_loc.append((round(xloc, -3)))
                 if unit == 'micron':
-                    x_loc = [round(val) for val in xloc]
-                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
+                    if xloc < 1 and xloc > 0:
+                        xl.append(round(xloc, 2))
+                        x_loc.append(round(xloc, 2))
+                    elif xloc == 0:
+                        xl.append(round(xloc))
+                        x_loc.append(round(xloc))
+                    else:
+                        if xloc % 1 < 0.5:
+                            xl.append(round(np.floor(xloc)))
+                            x_loc.append(round(np.floor(xloc)))
+                        elif xloc % 1 > 0.5:
+                            xl.append(round((xloc)))
+                            x_loc.append(round((xloc)))
 
-                return x_loc, x_labels, y_loc, y_labels
-            else:
-                number = iflux[0]
-                _, exp = normalize_number(number)
-
-                # y ticks
-                yloc = np.linspace(0, ymax / (10 ** exp), 4)
-                y_loc = [round(val) for val in yloc]
-                y_labels = [rf'$ \rm {round(val)}$' for val in y_loc]
-
-                # x ticks
-                xloc = np.linspace(xmin, xmax, 5)
-                if unit == 'AA':
-                    x_loc = [round(val, -3) for val in xloc]
-                if unit == 'micron':
-                    x_loc = [round(val) for val in xloc]
-                x_labels = [rf'$\rm {round(val)}$' for val in x_loc]
-
-                return x_loc, x_labels, y_loc, y_labels
+            x_labels = [rf'${(val)}$' for val in xl]
+            return x_loc, x_labels, y_loc, y_labels
 
 
-def setaxislimits(iwave, iflux, mw, mf, set_axis, unit, logplot=False, fbol_lam=False):
+def setaxislimits(iwave, iflux, exp, unit, set_axis, logplot=False, fbol_lam=False):
     if set_axis:
-        #print('User definied axis limits:', set_axis)
         xmin = set_axis[0]
         xmax = set_axis[1]
         ymin = set_axis[2]
         ymax = set_axis[3]
-        if logplot:
-            #print('Log plot')
-            #print('Xlimit: ', xmin - 0.1, xmax + 0.1)
-            #print('ylimit: ', ymin - 0.1, ymax + 0.1)
-            return xmin - 0.1, xmax + 0.1, ymin - 0.1, ymax + 0.1
-
-        else:
-            #print('no log plot')
-            if fbol_lam:
-                #print('Flam')
-                number = iflux[0] * iwave[0]
-                _, exp = normalize_number(number)
-            else:
-                #print('No flam')
-                number = iflux[0]
-                _, exp = normalize_number(number)
-            if unit == 'AA':
-                #print('X limits:', xmin - 500, xmax + 500)
-                #print('Y limits:', (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25)
-                return xmin - 500, xmax + 500, (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25
-            if unit == 'micron':
-                #print('X limits:', xmin - 0.1, xmax + 0.1)
-                #print('Y limits: ', (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25)
-                return xmin - 0.1, xmax + 0.1, (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25
-
     else:
-        set_axis = set_axis_limits(mw, mf, unit, fbol_lam=fbol_lam)
-        #print('RADPy definied axis limits:', set_axis)
+        set_axis = set_radpy_axis_limits(iwave, iflux, exp, unit, logplot=logplot)
         xmin = set_axis[0]
         xmax = set_axis[1]
         ymin = set_axis[2]
         ymax = set_axis[3]
 
-        if logplot:
-            #print('log plot')
-            xmin = round(np.log10(xmin), 1)
-            xmax = round(np.log10(xmax), 1)
-            ymin = round(np.log10(ymin), 1)
-            ymax = round(np.log10(ymax), 1)
-            #print('X limits:', xmin - 0.1, xmax + 0.1)
-            #print('Y limits:', ymin + 0.2, ymax + 0.1)
-            return xmin - 0.1, xmax + 0.1, ymin + 0.2, ymax + 0.1
+    if logplot:
+        return xmin - 0.1, xmax + 0.1, ymin - 0.5, ymax + 0.1
+    else:
+        if unit == 'AA':
+            return xmin - 500, xmax + 500, (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25
+        if unit == 'micron':
+            return xmin - 0.1, xmax + 0.1, (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25
 
-        else:
-            #print('No log plot')
-            if fbol_lam:
-                #print('Flam')
-                number = iflux[0] * iwave[0]
-                _, exp = normalize_number(number)
-            else:
-                #print('No flam')
-                number = iflux[0]
-                _, exp = normalize_number(number)
-            if unit == 'AA':
-               # print('X limits:', xmin - 500, xmax + 500)
-               # print('Y limits: ', (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25)
-                return xmin - 500, xmax + 500, (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25
-            if unit == 'micron':
-                #print('X limits:', xmin - 0.1, xmax + 0.1)
-                #print('Y limits: ', (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25)
-                return xmin - 0.1, xmax + 0.1, (ymin / (10 ** (exp))) - 0.25, (ymax / (10 ** (exp))) + 0.25
-
-def set_res_axis(res):
+def set_res_axis(res, logplot = False):
     min_res = np.min(res)
     max_res = np.max(res)
-
-    #print('Min residual:', min_res)
-    #print('Max residual:', max_res)
 
     minres = round(min_res, 1)
     maxres = round(max_res, 1)
 
-    #print(minres)
-    #print(maxres)
-
-    res_axis_min = minres-0.05
-    res_axis_max = maxres+0.05
-
-    res_loc = [minres, 0, maxres]
-    res_labels = [rf'$\rm {val}$' for val in res_loc]
-
-    #print(res_loc)
-    #print(res_labels)
+    if abs(minres) >= abs(maxres):
+        if logplot:
+            res_axis_min = (abs(minres)+0.05)*-1
+            res_axis_max = abs(minres)+0.05
+            res_loc = [abs(minres)*-1, 0, abs(minres)]
+            res_labels = [rf'$\rm {val}$' for val in res_loc]
+        else:
+            res_axis_min = (abs(minres)+0.5)*-1
+            res_axis_max = abs(minres)+0.5
+            res_loc = [round(abs(minres)*-1), 0, round(abs(minres))]
+            res_labels = [rf'$\rm {val}$' for val in res_loc]
+    elif abs(minres) <= abs(maxres):
+        if logplot:
+            res_axis_min = (abs(maxres)+0.05)*-1
+            res_axis_max = abs(maxres)+0.05
+            res_loc = [abs(maxres)*-1, 0, abs(maxres)]
+            res_labels = [rf'$\rm {val}$' for val in res_loc]
+        else:
+            res_axis_min = (abs(maxres)+0.5)*-1
+            res_axis_max = abs(maxres)+0.5
+            res_loc = [round(abs(maxres)*-1), 0, round(abs(maxres))]
+            res_labels = [rf'$\rm {val}$' for val in res_loc]
 
     return res_axis_min, res_axis_max, res_loc, res_labels
 
@@ -1549,7 +1525,7 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
     #    3. Plots everything                                 #
     ##########################################################
 
-    iwave, iflux, idwave, idflux, mw, mf, msf = convert(x, unit)
+    #iwave, iflux, idwave, idflux, mw, mf, msf = convert(x, unit)
 
     plt.rcParams.update({'font.size': 15})
     plt.rcParams['xtick.direction'] = 'in'
@@ -1558,9 +1534,12 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
 
     f, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [10, 3]}, sharex=True)
 
-    xmin, xmax, ymin, ymax = setaxislimits(iwave, iflux, mw, mf, set_axis, unit, logplot=logplot, fbol_lam=fbol_lam)
-    xloc, xlabels, yloc, ylabels = setaxisticklabels(iwave, iflux, mw, mf, set_axis, unit, logplot=logplot,
-                                                     fbol_lam=fbol_lam)
+    model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res, exp = set_values(x, unit,
+                                                                                                                   logplot=logplot,
+                                                                                                                   fbol_lam=fbol_lam,
+                                                                                                                   verbose=verbose)
+    xmin, xmax, ymin, ymax = setaxislimits(litp_xvals, litp_yvals, exp, unit, set_axis, logplot=logplot, fbol_lam=fbol_lam)
+    xloc, xlabels, yloc, ylabels = setaxisticklabels(litp_xvals, litp_yvals, exp, unit, set_axis, logplot=logplot, fbol_lam=fbol_lam)
 
     axes[0].set_ylim(ymin, ymax)
     axes[1].set_xlim(xmin, xmax)
@@ -1568,11 +1547,6 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
     axes[0].set_yticklabels(ylabels)
     axes[1].set_xticks(xloc)
     axes[1].set_xticklabels(xlabels)
-
-    model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res = set_values(x, unit,
-                                                                                                              logplot=logplot,
-                                                                                                              fbol_lam=fbol_lam,
-                                                                                                              verbose=verbose)
 
     axes[0].plot(model_xvals, model_yvals, 'g', linewidth=1, label=r'$\rm Model~Spectrum$')
     axes[0].plot(litp_xvals, litp_yvals, 'b.', markersize=10, markerfacecolor='none', label=r'$\rm Photometry$')
@@ -1586,22 +1560,22 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
     axes[1].plot(litp_xvals, res, 'k.')
     axes[1].errorbar(litp_xvals, res, yerr=litp_dyvals, fmt='.', color='black')
     axes[1].axhline(y=0)
-    ramin, ramax, rloc, rlabel = set_res_axis(res)
+    ramin, ramax, rloc, rlabel = set_res_axis(res, logplot = logplot)
     axes[1].set_ylim(ramin, ramax)
     axes[1].set_yticks(rloc)
     axes[1].set_yticklabels(rlabel)
     if logplot:
         if unit == 'micron':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=27)
+            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=5)
         if unit == 'AA':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=20)
+            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=5)
     else:
         if unit == 'micron':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=10)
+            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=0)
         if unit == 'AA':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=10)
+            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=0)
 
-    xlab, ylab = setaxislabels(iwave, iflux, unit, logplot=logplot, fbol_lam=fbol_lam)
+    xlab, ylab = setaxislabels(exp, unit, logplot=logplot, fbol_lam=fbol_lam)
     axes[1].set_xlabel(xlab)
     axes[0].set_ylabel(ylab)
     plt.subplots_adjust(wspace=0, hspace=0)
