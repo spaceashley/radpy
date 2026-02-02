@@ -1,0 +1,4 @@
+﻿Star,logg,dlogg,feh,dfeh,fitteff,fitteff_range,fitlogg,fitlogg_range,fitfeh,fitfeh_range,fitav,fitav_range,model
+HD 1461,4.35,0.21,0.19,0.01,TRUE,"[4500, 7000]",FALSE,,FALSE,,FALSE,,phoenix
+HD 164922,4.35,0.21,0.18,0.02,TRUE,"[4500, 7000]",TRUE,"[4.0, 5.0]",FALSE,,FALSE,,btsettl
+HD 127334,4.27,0.21,0.18,0.02,TRUE,"[4500, 7000]",FALSE,,FALSE,,FALSE,,phoenix
