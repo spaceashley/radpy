@@ -528,8 +528,8 @@ def save_photometry(starid, phot_obj, out_dir, verbose=False):
     f.out_folder = out_dir
     f.star.save_mags(f.out_folder + '/' + star_id)
     if verbose:
-        print('File saved:', os.getcwd() + '/' + f.out_folder + '/' + star_id + 'mags.dat')
-    fn = os.getcwd() + '/' + f.out_folder + '/' + star_id + 'mags.dat'
+        print('File saved:', f.out_folder + '/' + star_id + 'mags.dat')
+    fn = f.out_folder + '/' + star_id + 'mags.dat'
     return fn
 
 
