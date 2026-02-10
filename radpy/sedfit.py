@@ -941,7 +941,11 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
 
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
-        x = SEDFit(ra, dec, 1, grid_type=model)
+        try:
+            x = SEDFit(ra, dec, 1, use_gaia_params=False, use_gaia_xp = False, grid_type=model)
+            x.addguesses(r=[1])
+        except AttributeError:
+            x = SEDFit(ra, dec, 0.5, use_gaia_params = False, use_gaia_xp = False, grid_type = model)
 
     x.dist = d
     downloadflux(x, sed)
