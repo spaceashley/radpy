@@ -329,10 +329,10 @@ def extract_photometry(starid, star, verbose=False):
     if not verbose:
         f = io.StringIO()
         with contextlib.redirect_stdout(f):
-            s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper', 'GALEX'], verbose=False)
+            s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper', 'GALEX', 'APASS', 'Pan-STARRS', 'SDSS', 'ASCC', 'GLIMPSE', 'TESS', 'STROMGREN_PAUNZ', 'STROMGREN_HAUCK'], verbose=False)
 
     if verbose:
-        s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper', 'GALEX'], verbose=False)
+        s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper', 'GALEX', 'APASS', 'Pan-STARRS', 'SDSS', 'ASCC', 'GLIMPSE', 'TESS', 'STROMGREN_PAUNZ', 'STROMGREN_HAUCK'], verbose=False)
 
     return s
 
