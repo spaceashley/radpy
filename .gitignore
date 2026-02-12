@@ -4,7 +4,7 @@ rsadpy/radpy/tests/test_data/SingleStarTest/PAVOdata.csv
 rsadpy/radpy/tests/test_data/SingleStarTest/Vegadata.csv
 
 #ignore testing data file directory
-rsadpy/radpy/tests/test_data/*
+rsadpy/radpy/tests/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
