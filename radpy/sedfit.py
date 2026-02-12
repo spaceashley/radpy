@@ -329,10 +329,10 @@ def extract_photometry(starid, star, verbose=False):
     if not verbose:
         f = io.StringIO()
         with contextlib.redirect_stdout(f):
-            s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper'], verbose=False)
+            s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper', 'GALEX'], verbose=False)
 
     if verbose:
-        s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper'], verbose=False)
+        s = Star(starid, ra, dec, g_id=gaia_id, ignore=['SkyMapper', 'GALEX'], verbose=False)
 
     return s
 
@@ -989,9 +989,9 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
     if verbose:
         print("Distance: {} pc".format(x.getdist()))
         print("AV: {} mag".format(x.getav()))
-        print("Radius: {} Rsun".format(x.getr()))
-        print("Teff: {} K".format(x.getteff()))
-        print("Log g: {} ".format(x.getlogg()))
+        print("Radius: {} Rsun".format(x.getr()[0]))
+        print("Teff: {} K".format(x.getteff()[0]))
+        print("Log g: {} ".format(x.getlogg()[0]))
         print("Fe/H: {}".format(x.getfeh()))
 
     star.sed_rad = x.getr()[0]
@@ -1031,38 +1031,46 @@ def convert(sed, unit):
     #       log and converts it into microns if needed       #
     #    8. Returns values                                   #
     ##########################################################
+    w = sed.sed['la']
+    f = sed.sed['flux']
+    dw = sed.sed['width']
+    df = sed.sed['eflux']
+    sf = sed.mags
+    mw = sed.la
+    mf = sed.fx.flatten()
     if unit == 'AA':
-        lit_w = sed.sed['la']  # literature wavelengths
-        lit_f = (10 ** sed.sed['flux']) / np.array(lit_w)  # literature flux
-        lit_dw = sed.sed['width']  # literature wavelength error
-        lit_df = (sed.sed['eflux'] / 0.434) * lit_f  # literature flux error
+        lit_w = w  # literature wavelengths
+        lit_f = (10 ** f) / np.array(w)  # literature flux
+        lit_dw = dw # literature wavelength error
+        lit_df = (df / 0.434) * lit_f  # literature flux error
 
-        model_w = np.array(sed.la)  # model wavelength
-        model_f = (10 ** (sed.fx.flatten())) / model_w  # model flux
+        model_w = mw  # model wavelength
+        model_f = (10 ** mf) / mw  # model flux
 
-        synth_f = (10 ** sed.mags) / np.array(lit_w)  # model fluxes for the wavelength
+        synth_f = (10 ** sf) / np.array(w)  # model fluxes for the wavelength
 
         # residuals = lit_f-synth_f
 
-        return lit_w, lit_f, lit_dw, lit_df, model_w, model_f, synth_f
+        return np.array(lit_w), np.array(lit_f), np.array(lit_dw), np.array(lit_df), np.array(model_w), np.array(model_f), np.array(synth_f)
 
     if unit == 'micron':
-        lit_w = sed.sed['la'] * (1e-4)  # literature wavelengths
-        lit_f = ((10 ** sed.sed['flux']) / np.array(lit_w)) * (1e-4)  # literature flux
-        lit_dw = sed.sed['width'] * (1e-4)  # literature wavelength error
-        lit_df = ((sed.sed['eflux'] / 0.434) * lit_f) * (1e-4)  # literature flux error
+        lit_w = w * (1e-4)  # literature wavelengths
+        lit_f = ((10 ** f) / np.array(w)) * (1e4)  # literature flux
+        lit_dw = dw * (1e-4)  # literature wavelength error
+        lit_df = ((df / 0.434) * f) * (1e4)  # literature flux error
 
         model_w = np.array(sed.la) * (1e-4)  # model wavelength
-        model_f = ((10 ** (sed.fx.flatten())) / model_w) * (1e-4)  # model flux
+        model_f = ((10 ** (sed.fx.flatten())) / model_w) * (1e4)  # model flux
 
-        synth_f = ((10 ** sed.mags) / np.array(lit_w)) * (1e-4)  # model fluxes for the wavelength
+        synth_f = ((10 ** sed.mags) / np.array(lit_w)) * (1e4)  # model fluxes for the wavelength
 
         # residuals = np.array(lit_f)-np.array(synth_f)
 
         return np.array(lit_w), np.array(lit_f), np.array(lit_dw), np.array(lit_df), np.array(model_w), np.array(
             model_f), np.array(synth_f)
 
-def calc_fbol(star,x, unit, verbose = False):
+
+def calc_fbol(star, x, unit, verbose=False):
     ##########################################################
     # Function: calc_fbol                                    #
     # Inputs:                                                #
@@ -1080,17 +1088,21 @@ def calc_fbol(star,x, unit, verbose = False):
     #    5. Returns values.                                  #
     ##########################################################
     _, _, _, _, model_w, model_f, _ = convert(x, unit=unit)
+
     def new_model(x):
         new_m = np.interp(x, model_w, model_f)
         return new_m
 
     result, error = quad(new_model, min(model_w), 1000000)
-    if verbose:
-        print('Fbol = ', round(result/(1e-8), 5), '+/-', round(error/(1e-8),5), 'x10^(-8) erg/s/cm^s/angstrom')
 
-    star.fbol = round(result/(1e-8), 5)
-    star.fbol_err = round(error/(1e-8), 5)
-    return result, error
+    new_dfbol = np.sqrt((error ** 2) + (result * 0.02) ** 2)
+
+    if verbose:
+        print('Fbol = ', round(result / (1e-8), 5), '+/-', round(new_dfbol / (1e-8), 5), 'x10^(-8) erg/s/cm^2')
+
+    star.fbol = round(result / (1e-8), 5)
+    star.fbol_err = round(new_dfbol / (1e-8), 5)
+    return result, new_dfbol
 
 
 def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
