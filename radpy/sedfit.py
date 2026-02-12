@@ -995,6 +995,8 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
         print("Fe/H: {}".format(x.getfeh()))
 
     star.sed_rad = x.getr()[0]
+    star.SEDchi2 = round(chi2, 5)
+    star.SEDchi2red = round(chi2r, 5)
     return x
 
 

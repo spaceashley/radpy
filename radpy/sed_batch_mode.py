@@ -89,7 +89,7 @@ def create_photometry_file(star_id, out_dir, verbose=False):
     out_dir = out_dir
     if verbose:
         print(f"Extracted photometry for {starname}")
-
+    remove_photometry(photometry, 'su', verbose=verbose)
     filename = save_photometry(starname, photometry, out_dir, verbose=verbose)
 
     return filename
@@ -104,6 +104,8 @@ def write_results(starname, sed_obj, star,  out_dir, rows_for_results, rows_for_
     star_logg_err = star.logg_err
     star_feh = star.feh
     star_feh_err = star.feh_err
+    star_chi2 = star.SEDchi2
+    star_chi2r = star.SEDchi2red
 
     rows_for_diams.append({
         "Star": starname,
@@ -119,7 +121,9 @@ def write_results(starname, sed_obj, star,  out_dir, rows_for_results, rows_for_
         "Star": starname,
         "SED Teff": star_teff,
         "SED Av": star_av,
-        "SED Radius": star_rad
+        "SED Radius": star_rad,
+        "SED Chi2": star_chi2,
+        "SED Chi2Red" : star_chi2r
     })
 
     return rows_for_diams, rows_for_results
