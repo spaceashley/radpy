@@ -1059,12 +1059,12 @@ def convert(sed, unit):
         lit_w = w * (1e-4)  # literature wavelengths
         lit_f = ((10 ** f) / np.array(w)) * (1e4)  # literature flux
         lit_dw = dw * (1e-4)  # literature wavelength error
-        lit_df = ((df / 0.434) * f) * (1e4)  # literature flux error
+        lit_df = (df / 0.434) * lit_f  # literature flux error
 
-        model_w = np.array(sed.la) * (1e-4)  # model wavelength
-        model_f = ((10 ** (sed.fx.flatten())) / model_w) * (1e4)  # model flux
+        model_w = mw * (1e-4)  # model wavelength
+        model_f = ((10 ** mf) / np.array(mw)) * (1e4)  # model flux
 
-        synth_f = ((10 ** sed.mags) / np.array(lit_w)) * (1e4)  # model fluxes for the wavelength
+        synth_f = ((10 ** sf) / np.array(w)) * (1e4)  # model fluxes for the wavelength
 
         # residuals = np.array(lit_f)-np.array(synth_f)
 
