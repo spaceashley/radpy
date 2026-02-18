@@ -915,7 +915,7 @@ def randomize_photometry(sed):
     return new_sed
 
 
-def calc_fbol(x):
+def calc_fbol(x, unit):
     ##########################################################
     # Function: calc_fbol                                    #
     # Inputs:                                                #
@@ -932,7 +932,7 @@ def calc_fbol(x):
     #    4. Sets bolometric flux value and error to star     #
     #    5. Returns values.                                  #
     ##########################################################
-    _, _, _, _, model_w, model_f, _ = convert(x)
+    _, _, _, _, model_w, model_f, _ = convert(x, unit = unit)
 
     F1 = np.trapezoid(model_f, model_w)
 
