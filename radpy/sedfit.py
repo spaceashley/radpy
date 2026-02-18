@@ -932,14 +932,14 @@ def calc_fbol(x):
     #    4. Sets bolometric flux value and error to star     #
     #    5. Returns values.                                  #
     ##########################################################
-    _, _, _, _, model_w, model_f, _ = convert(x, unit=unit)
+    _, _, _, _, model_w, model_f, _ = convert(x)
 
-    F1 = np.trapz(model_f, model_w)
+    F1 = np.trapezoid(model_f, model_w)
 
     # testing the model's convergence
     wav_fine = np.linspace(model_w.min(), model_w.max(), 100 * len(model_w))
     f_fine = np.interp(wav_fine, model_w, model_f)
-    F2 = np.trapz(f_fine, wav_fine)
+    F2 = np.trapezoid(f_fine, wav_fine)
 
     convergence = ((F1 - F2) / F2) * 100
     if convergence >= 0.1:
