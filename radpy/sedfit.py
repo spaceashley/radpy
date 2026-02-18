@@ -957,7 +957,7 @@ def select_bestfit(star, sed_list, chi2list, chi2redlist):
     return sed_bf
 
 
-def fit_sed(sed, star, initial_guess, num_iter, model, teffrange=None, loggrange=None, fehrange=None, avrange = None, fitT=False, fit_logg=False,
+def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, loggrange=None, fehrange=None, avrange = None, fitT=False, fit_logg=False,
             fit_feh=False, fit_av = False, verbose=False):
     ##########################################################
     # Function: fit_sed                                      #
@@ -1057,7 +1057,7 @@ def fit_sed(sed, star, initial_guess, num_iter, model, teffrange=None, loggrange
         chi2s.append(chi2)
         chi2reds.append(chi2r)
 
-        fb = calc_fbol(sed_obj)
+        fb = calc_fbol(sed_obj, unit)
         fbol.append(fb)
 
         seds.append(sed_obj)
