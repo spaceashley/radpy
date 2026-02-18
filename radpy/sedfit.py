@@ -13,9 +13,9 @@ from SEDFit.sed import SEDFit
 from astropy import units as u
 import matplotlib.pyplot as plt
 from astropy.table import Table
-from scipy.integrate import quad
 from radpy.config import svopath
 from astroARIADNE.star import Star
+from numpy.random import default_rng
 from astroquery.simbad import Simbad
 from astroARIADNE.fitter import Fitter
 from astropy import coordinates as coord
@@ -890,27 +890,18 @@ def chi2red(x, numfp, verbose=False):
         print("Chi squared reduced:", chi2r)
     return (chi, chi2r)
 
+
+
+
+
 def randomize_photometry(sed):
-    idx = sed['index']
-    filt = sed['sed_filter']
-    wl = sed['la']
-    width = sed['width']
-    f = sed['flux']
-    df = sed['eflux']
+    """Ultra-fast version using numpy's new RNG"""
+    rng = default_rng()  # Faster than np.random.normal
 
-    #rand_wl = np.random.normal(wl, width)
-    rand_f = np.random.normal(f, df)
-
-    new_phot = pd.DataFrame(
-        {'index': idx, 'sed_filter': filt, 'la': wl, 'width': width, 'flux': rand_f,
-         'eflux': df})
-    new_sed = Table.from_pandas(new_phot)
-    new_sed['la'].unit = u.AA
-    new_sed['width'].unit = u.AA
+    new_sed = sed.copy()
+    rand_f = rng.normal(new_sed['flux'], new_sed['eflux'])
     new_sed['flux'] = rand_f
-    new_sed['eflux'] = df
-    new_sed['flux'].unit = u.erg / u.s / (u.cm ** 2) / u.AA
-    new_sed['eflux'].unit = u.erg / u.s / (u.cm ** 2) / u.AA
+
     return new_sed
 
 
@@ -957,7 +948,7 @@ def select_bestfit(star, sed_list, chi2list, chi2redlist):
 
 
 def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, loggrange=None, fehrange=None, avrange = None, fitT=False, fit_logg=False,
-            fit_feh=False, fit_av = False, verbose=False):
+            fit_feh=False, fit_av = False, verbose=False, debug = False):
     ##########################################################
     # Function: fit_sed                                      #
     # Inputs:                                                #
@@ -999,10 +990,13 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     #   11. Sets the params to the stellar object            #
     #   12. Returns the SED object                           #
     ##########################################################
+    import time
+
     d = star.dist
     ra = star.ra_hms
     dec = star.dec_dms
-
+    if verbose:
+        print("Initializing SEDFit object...")
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
         try:
@@ -1015,19 +1009,16 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     x.dist = d
     x.addguesses(teff=teff, logg=logg, feh=feh, av=av)
 
-    numOparams = 1
     if teffrange is not None:
         x.addrange(teff=teffrange)
-        numOparams += 1
     if loggrange is not None:
         x.addrange(logg=loggrange)
-        numOparams += 1
     if fehrange is not None:
         x.addrange(feh=fehrange)
-        numOparams += 1
     if avrange is not None:
         x.addrange(av=avrange)
-        numOparams += 1
+
+    numOparams = 1 + sum([fitT, fit_logg, fit_feh, fit_av])
 
     fbol = np.zeros(num_iter)
     chi2s = np.zeros(num_iter)
@@ -1037,41 +1028,47 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     best_chi2red = np.inf
     best_idx = 0
 
-    if not verbose:
-        suppress_output = contextlib.redirect_stdout(io.StringIO())
-    else:
-        suppress_output = contextlib.nullcontext()
+    print(f"Starting {num_iter} iterations...")
+    overall_start = time.time()
 
-    for i in range(num_iter):
-        sed_obj = x
-        # if verbose:
-        # print("Starting fit #", i+1)
-        rand_sed = randomize_photometry(sed)
-        downloadflux(sed_obj, rand_sed)
-        # downloadflux(sed_obj, sed)
-        # set_quality(sed_obj)
-        if i == 0 or i % max(1, num_iter // 5) == 0:
-            set_quality(sed_obj)
-        with suppress_output:
-            x.fit(use_gaia=False, idx=np.arange(0, len(sed_obj.sed['index'])), fitdist=False, fitteff=fitT,
-                  fitfeh=fit_feh,
+    with contextlib.redirect_stdout(io.String.IO()):
+        for i in range(num_iter):
+            iter_start = time.time()
+
+            if i < 3 or i % 10 == 0:
+                print(f"\n[{i + 1}/{num_iter}] Starting iteration...", flush=True)
+
+            rand_sed = randomize_photometry(sed)
+            downloadflux(x, rand_sed)
+
+            if i == 0:
+                set_quality(x)
+
+            x.fit(use_gaia=False, idx=np.arange(0, len(x.sed['index'])),
+                  fitdist=False, fitteff=fitT, fitfeh=fit_feh,
                   fitlogg=fit_logg, fitav=fit_av, quality_check=False)
 
-        chi2, chi2r = chi2red(sed_obj, numOparams, verbose=False)
-        chi2s[i] = chi2
-        chi2reds[i] = chi2r
+            chi2s, chi2r = chi2red(x, numOparams, verbose=False)
+            chi2reds[i] = chi2r
+            fbol[i] = calc_fbol(x, unit)
 
-        fbol[i] = calc_fbol(sed_obj, unit)
-        # fbol.append(fb)
-        if chi2r < best_chi2red:
-            best_chi2red = chi2r
-            best_idx = i
-            # Deep copy only the best SED to avoid reference issues
-            import copy
-            best_sed = copy.deepcopy(sed_obj)
-        # seds.append(sed_obj)
-        # if verbose:
-        # print("Finished fit #", i+1)
+            if chi2r < best_chi2red:
+                best_chi2red = chi2r
+                import copy
+                best_sed = copy.deepcopy(x)
+
+            iter_time = time.time() - iter_start
+
+            if i < 3 or i % 10 == 0:
+                elapsed = time.time() - overall_start
+                avg_time = elapsed / (i + 1)
+                remaining = avg_time * (num_iter - i - 1)
+                if debug:
+                    print(f"[{i + 1}/{num_iter}] Complete in {iter_time:.1f}s | "
+                          f"Avg: {avg_time:.1f}s | ETA: {remaining / 60:.1f} min", flush=True)
+    if debug:
+        total_time = time.time() - overall_start
+        print(f"\n✓ All {num_iter} iterations complete in {total_time / 60:.1f} minutes or {total_time:.3f} seconds")
 
     avg_fbol = np.mean(fbol)
     std_fbol = np.std(fbol)
@@ -1084,9 +1081,7 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     star.fbol = round((avg_fbol / 1e-8), 5)
     star.fbol_err = round((fbol_err / 1e-8), 5)
 
-    star.SEDchi2 = chi2s[best_idx]
     star.SEDchi2red = best_chi2red
-    # sed_best = select_bestfit(star, seds, chi2s, chi2reds)
 
     if fitT == True:
         star.SEDTeff = best_sed.getteff()[0]
