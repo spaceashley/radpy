@@ -142,9 +142,8 @@ def write_table(df, out_dir, out_file):
     df.to_csv(out_file, sep='\t', index=False)
 
 
-def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fitting_param_dict, unit, set_axis, image_ext,
-                     result_rows, diam_rows,
-                     uselatex, logplot, fbol_lam, own_photometry=False, verbose=False):
+def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fitting_param_dict, unit, num_iter, set_axis, image_ext,
+                     result_rows, diam_rows, uselatex, logplot, fbol_lam, own_photometry=False, verbose=False):
     star_id = extract_id(star_name)
     print("--------------------------------------------------")
     print(f"Starting processing for {star_name}")
@@ -179,11 +178,10 @@ def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fittin
 
     init_values, fit_ranges, fit_flags, model = convert_fit_params(star_name, star, fitting_param_dict, verbose=False)
 
-    sed_fit = fit_sed(phot_data, star, init_values, model, teffrange=fit_ranges[0], loggrange=fit_ranges[1],
+    sed_fit = fit_sed(phot_data, star, init_values, num_iter, model, teffrange=fit_ranges[0], loggrange=fit_ranges[1],
                       fehrange=fit_ranges[2], avrange=fit_ranges[3], fitT=fit_flags[0],
                       fit_logg=fit_flags[1], fit_feh=fit_flags[2], fit_av=fit_flags[3], verbose=verbose)
 
-    fbol, fbol_err = calc_fbol(star, sed_fit, unit=unit, verbose=verbose)
 
     sed_results, diam_resuls = write_results(star_name, sed_fit, star, output_dir, result_rows, diam_rows)
 
@@ -206,7 +204,7 @@ def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fittin
     print(f"Finished processing {star_name}")
 
 
-def sed_batchmode(starfile, data_dir, out_dir, res_out, diam_out, unit, set_axis, image_ext, uselatex, logplot,
+def sed_batchmode(starfile, data_dir, out_dir, res_out, diam_out, unit, num_iter, set_axis, image_ext, uselatex, logplot,
                   fbol_lam, own_photometry, verbose=False):
     os.chdir(data_dir)
     star_names, star_params, fit_params = get_stellar_params(starfile)
@@ -214,9 +212,8 @@ def sed_batchmode(starfile, data_dir, out_dir, res_out, diam_out, unit, set_axis
     diam_rows = []
     count = 0
     for star_name in star_names:
-        sed_process_star(star_name, data_dir, out_dir, star_params, fit_params, unit, set_axis, image_ext, res_rows,
-                         diam_rows, uselatex,
-                         logplot, fbol_lam, own_photometry=own_photometry, verbose=verbose)
+        sed_process_star(star_name, data_dir, out_dir, star_params, fit_params, unit, num_iter, set_axis, image_ext, res_rows,
+                         diam_rows, uselatex, logplot, fbol_lam, own_photometry=own_photometry, verbose=verbose)
         count += 1
 
     res_df = pd.DataFrame(res_rows)

@@ -891,8 +891,73 @@ def chi2red(x, numfp, verbose=False):
         print("Chi squared reduced:", chi2r)
     return (chi, chi2r)
 
+def randomize_photometry(sed):
+    idx = sed['index']
+    filt = sed['sed_filter']
+    wl = sed['la']
+    width = sed['width']
+    f = sed['flux']
+    df = sed['eflux']
 
-def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, fehrange=None, avrange = None, fitT=False, fit_logg=False,
+    #rand_wl = np.random.normal(wl, width)
+    rand_f = np.random.normal(f, df)
+
+    new_phot = pd.DataFrame(
+        {'index': idx, 'sed_filter': filt, 'la': wl, 'width': width, 'flux': rand_f,
+         'eflux': df})
+    new_sed = Table.from_pandas(new_phot)
+    new_sed['la'].unit = u.AA
+    new_sed['width'].unit = u.AA
+    new_sed['flux'] = rand_f
+    new_sed['eflux'] = df
+    new_sed['flux'].unit = u.erg / u.s / (u.cm ** 2) / u.AA
+    new_sed['eflux'].unit = u.erg / u.s / (u.cm ** 2) / u.AA
+    return new_sed
+
+
+def calc_fbol(x):
+    ##########################################################
+    # Function: calc_fbol                                    #
+    # Inputs:                                                #
+    #    star: star object                                   #
+    #    x: sed object                                       #
+    #    unit: unit string                                   #
+    # Outputs:                                               #
+    #    result: bolometric flux                             #
+    #    error: error on bolometric flux                     #
+    # How it works:                                          #
+    #    1. Calls convert to generate the model values       #
+    #    2. Defines a "model" for integration purposes       #
+    #    3. Integrates the model                             #
+    #    4. Sets bolometric flux value and error to star     #
+    #    5. Returns values.                                  #
+    ##########################################################
+    _, _, _, _, model_w, model_f, _ = convert(x, unit=unit)
+
+    F1 = np.trapz(model_f, model_w)
+
+    # testing the model's convergence
+    wav_fine = np.linspace(model_w.min(), model_w.max(), 100 * len(model_w))
+    f_fine = np.interp(wav_fine, model_w, model_f)
+    F2 = np.trapz(f_fine, wav_fine)
+
+    convergence = ((F1 - F2) / F2) * 100
+    if convergence >= 0.1:
+        print("Integration does not converge.")
+
+    return F1
+
+def select_bestfit(star, sed_list, chi2list, chi2redlist):
+    min_c2r = min(chi2redlist)
+    minidx = np.argmin(chi2redlist)
+    sed_bf = sed_list[minidx]
+    minc2 = chi2list[minidx]
+    star.SEDchi2 = minc2
+    star.SEDchi2red = min_c2r
+    return sed_bf
+
+
+def fit_sed(sed, star, initial_guess, num_iter, model, teffrange=None, loggrange=None, fehrange=None, avrange = None, fitT=False, fit_logg=False,
             fit_feh=False, fit_av = False, verbose=False):
     ##########################################################
     # Function: fit_sed                                      #
@@ -942,18 +1007,15 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
         try:
-            x = SEDFit(ra, dec, 1, use_gaia_params=False, use_gaia_xp = False, grid_type=model)
+            x = SEDFit(ra, dec, 1, use_gaia_params=False, use_gaia_xp=False, grid_type=model)
             x.addguesses(r=[1])
         except AttributeError:
-            x = SEDFit(ra, dec, 0.5, use_gaia_params = False, use_gaia_xp = False, grid_type = model)
-
-    x.dist = d
-    downloadflux(x, sed)
-    set_quality(x)
+            x = SEDFit(ra, dec, 0.5, use_gaia_params=False, use_gaia_xp=False, grid_type=model)
 
     teff, logg, feh, av = initial_guess
+    x.dist = d
+    x.addguesses(teff=teff, logg=logg, feh=feh, av=av)
 
-    x.addguesses(teff=teff, logg=logg, feh=feh, av = av)
     if teffrange is not None:
         x.addrange(teff=teffrange)
     if loggrange is not None:
@@ -963,41 +1025,76 @@ def fit_sed(sed, star, initial_guess, model, teffrange=None, loggrange=None, feh
     if avrange is not None:
         x.addrange(av=avrange)
 
-    x.fit(use_gaia=False, idx=np.arange(0, len(x.sed['index'])), fitdist=False,
-          fitteff=fitT, fitfeh=fit_feh, fitlogg=fit_logg, fitav = fit_av, quality_check=False)
-    numOparams = 1
-    if fitT == True:
-        numOparams += 1
-        # print("fitT is set to True.")
-        # print(numOparams)
-        star.sed_teff = x.getteff()[0]
-    if fit_logg == True:
-        numOparams += 1
-        # print("fitlogg is set to True.")
-        # print(numOparams)
-        star.sed_logg = x.getlogg()[0]
-    if fit_feh == True:
-        numOparams += 1
-        # print("fitfeh is set to True.")
-        # print(numOparams)
-        star.sed_feh = x.getfeh()
-    if fit_av == True:
-        numOparams +=1
-        star.sed_av = x.getav()
+    fbol = []
+    fbol_err = []
+    chi2s = []
+    chi2reds = []
+    seds = []
 
-    chi2, chi2r = chi2red(x, numOparams, verbose=verbose)
+    for i in range(num_iter):
+        sed_obj = x
+        # if verbose:
+        #    print("Starting fit #", i+1)
+        rand_sed = randomize_photometry(sed)
+        downloadflux(sed_obj, rand_sed)
+        # downloadflux(sed_obj, sed)
+        set_quality(sed_obj)
+        sed_obj.fit(use_gaia=False, idx=np.arange(0, len(sed_obj.sed['index'])), fitdist=False, fitteff=fitT,
+                    fitfeh=fit_feh,
+                    fitlogg=fit_logg, fitav=fit_av, quality_check=False)
+
+        numOparams = 1
+        if fitT == True:
+            numOparams += 1
+        if fit_logg == True:
+            numOparams += 1
+        if fit_feh == True:
+            numOparams += 1
+        if fit_av == True:
+            numOparams += 1
+
+        chi2, chi2r = chi2red(sed_obj, numOparams, verbose=False)
+        chi2s.append(chi2)
+        chi2reds.append(chi2r)
+
+        fb = calc_fbol(sed_obj)
+        fbol.append(fb)
+
+        seds.append(sed_obj)
+        # if verbose:
+        #    print("Finished fit #", i+1)
+
+    avg_fbol = np.mean(fbol)
+    std_fbol = np.std(fbol)
+    fbol_err = np.sqrt((std_fbol) ** 2 + (0.02 * avg_fbol) ** 2)
+    precision = (fbol_err / avg_fbol) * 100
     if verbose:
-        print("Distance: {} pc".format(x.getdist()))
-        print("AV: {} mag".format(x.getav()))
-        print("Radius: {} Rsun".format(x.getr()[0]))
-        print("Teff: {} K".format(x.getteff()[0]))
-        print("Log g: {} ".format(x.getlogg()[0]))
-        print("Fe/H: {}".format(x.getfeh()))
+        print('Bolometric flux: ', round((avg_fbol / 1e-8), 5), '+/-', round((fbol_err / 1e-8), 5),
+              'x 10^{-8) erg/s/cm^2')
+        print('Fbol precision: ', round(precision, 3), '%')
+    star.fbol = round((avg_fbol / 1e-8), 5)
+    star.fbol_err = round((fbol_err / 1e-8), 5)
 
-    star.sed_rad = x.getr()[0]
-    star.SEDchi2 = round(chi2, 5)
-    star.SEDchi2red = round(chi2r, 5)
-    return x
+    sed_best = select_bestfit(star, seds, chi2s, chi2reds)
+
+    if fitT == True:
+        star.SEDTeff = x.getteff()[0]
+    if fit_logg == True:
+        star.SEDlogg = x.getlogg()[0]
+    if fit_feh == True:
+        star.SEDfeh = x.getfeh()
+    if fit_av == True:
+        star.SEDAv = x.getav()
+
+    if verbose:
+        print("Distance: {} pc".format(sed_best.getdist()))
+        print("AV: {} mag".format(sed_best.getav()))
+        print("Radius: {} Rsun".format(sed_best.getr()[0]))
+        print("Teff: {} K".format(sed_best.getteff()[0]))
+        print("Log g: {} ".format(sed_best.getlogg()[0]))
+        print("Fe/H: {}".format(sed_best.getfeh()))
+
+    return sed_best
 
 
 def convert(sed, unit):
@@ -1070,42 +1167,6 @@ def convert(sed, unit):
 
         return np.array(lit_w), np.array(lit_f), np.array(lit_dw), np.array(lit_df), np.array(model_w), np.array(
             model_f), np.array(synth_f)
-
-
-def calc_fbol(star, x, unit, verbose=False):
-    ##########################################################
-    # Function: calc_fbol                                    #
-    # Inputs:                                                #
-    #    star: star object                                   #
-    #    x: sed object                                       #
-    #    unit: unit string                                   #
-    # Outputs:                                               #
-    #    result: bolometric flux                             #
-    #    error: error on bolometric flux                     #
-    # How it works:                                          #
-    #    1. Calls convert to generate the model values       #
-    #    2. Defines a "model" for integration purposes       #
-    #    3. Integrates the model                             #
-    #    4. Sets bolometric flux value and error to star     #
-    #    5. Returns values.                                  #
-    ##########################################################
-    _, _, _, _, model_w, model_f, _ = convert(x, unit=unit)
-
-    def new_model(x):
-        new_m = np.interp(x, model_w, model_f)
-        return new_m
-
-    result, error = quad(new_model, min(model_w), 1000000)
-
-    new_dfbol = np.sqrt((error ** 2) + (result * 0.02) ** 2)
-
-    if verbose:
-        print('Fbol = ', round(result / (1e-8), 5), '+/-', round(new_dfbol / (1e-8), 5), 'x10^(-8) erg/s/cm^2')
-
-    star.fbol = round(result / (1e-8), 5)
-    star.fbol_err = round(new_dfbol / (1e-8), 5)
-    return result, new_dfbol
-
 
 def set_values(x, unit, logplot=False, fbol_lam=False, verbose=False):
     ##########################################################
