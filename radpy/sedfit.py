@@ -1015,55 +1015,63 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     x.dist = d
     x.addguesses(teff=teff, logg=logg, feh=feh, av=av)
 
+    numOparams = 1
     if teffrange is not None:
         x.addrange(teff=teffrange)
+        numOparams += 1
     if loggrange is not None:
         x.addrange(logg=loggrange)
+        numOparams += 1
     if fehrange is not None:
         x.addrange(feh=fehrange)
+        numOparams += 1
     if avrange is not None:
         x.addrange(av=avrange)
+        numOparams += 1
 
-    fbol = []
-    fbol_err = []
-    chi2s = []
-    chi2reds = []
-    seds = []
+    fbol = np.zeros(num_iter)
+    chi2s = np.zeros(num_iter)
+    chi2reds = np.zeros(num_iter)
+
+    best_sed = None
+    best_chi2red = np.inf
+    best_idx = 0
+
+    if not verbose:
+        suppress_output = contextlib.redirect_stdout(io.StringIO())
+    else:
+        suppress_output = contextlib.nullcontext()
 
     for i in range(num_iter):
         sed_obj = x
         # if verbose:
-        #    print("Starting fit #", i+1)
+        # print("Starting fit #", i+1)
         rand_sed = randomize_photometry(sed)
         downloadflux(sed_obj, rand_sed)
         # downloadflux(sed_obj, sed)
-        set_quality(sed_obj)
-        f1 = io.StringIO()
-        with contextlib.redirect_stdout(f1):
-            sed_obj.fit(use_gaia=False, idx=np.arange(0, len(sed_obj.sed['index'])), fitdist=False, fitteff=fitT,
-                        fitfeh=fit_feh,
-                        fitlogg=fit_logg, fitav=fit_av, quality_check=False)
-
-        numOparams = 1
-        if fitT == True:
-            numOparams += 1
-        if fit_logg == True:
-            numOparams += 1
-        if fit_feh == True:
-            numOparams += 1
-        if fit_av == True:
-            numOparams += 1
+        # set_quality(sed_obj)
+        if i == 0 or i % max(1, num_iter // 5) == 0:
+            set_quality(sed_obj)
+        with suppress_output:
+            x.fit(use_gaia=False, idx=np.arange(0, len(sed_obj.sed['index'])), fitdist=False, fitteff=fitT,
+                  fitfeh=fit_feh,
+                  fitlogg=fit_logg, fitav=fit_av, quality_check=False)
 
         chi2, chi2r = chi2red(sed_obj, numOparams, verbose=False)
-        chi2s.append(chi2)
-        chi2reds.append(chi2r)
+        chi2s[i] = chi2
+        chi2reds[i] = chi2r
 
-        fb = calc_fbol(sed_obj, unit)
-        fbol.append(fb)
-
-        seds.append(sed_obj)
+        fbol[i] = calc_fbol(sed_obj, unit)
+        # fbol.append(fb)
+        if chi2r < best_chi2red:
+            best_chi2red = chi2r
+            best_idx = i
+            # Deep copy only the best SED to avoid reference issues
+            import copy
+            best_sed = copy.deepcopy(sed_obj)
+        # seds.append(sed_obj)
         # if verbose:
-        #    print("Finished fit #", i+1)
+        # print("Finished fit #", i+1)
 
     avg_fbol = np.mean(fbol)
     std_fbol = np.std(fbol)
@@ -1076,26 +1084,28 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     star.fbol = round((avg_fbol / 1e-8), 5)
     star.fbol_err = round((fbol_err / 1e-8), 5)
 
-    sed_best = select_bestfit(star, seds, chi2s, chi2reds)
+    star.SEDchi2 = chi2s[best_idx]
+    star.SEDchi2red = best_chi2red
+    # sed_best = select_bestfit(star, seds, chi2s, chi2reds)
 
     if fitT == True:
-        star.SEDTeff = x.getteff()[0]
+        star.SEDTeff = best_sed.getteff()[0]
     if fit_logg == True:
-        star.SEDlogg = x.getlogg()[0]
+        star.SEDlogg = best_sed.getlogg()[0]
     if fit_feh == True:
-        star.SEDfeh = x.getfeh()
+        star.SEDfeh = best_sed.getfeh()
     if fit_av == True:
-        star.SEDAv = x.getav()
+        star.SEDAv = best_sed.getav()
 
     if verbose:
-        print("Distance: {} pc".format(sed_best.getdist()))
-        print("AV: {} mag".format(sed_best.getav()))
-        print("Radius: {} Rsun".format(sed_best.getr()[0]))
-        print("Teff: {} K".format(sed_best.getteff()[0]))
-        print("Log g: {} ".format(sed_best.getlogg()[0]))
-        print("Fe/H: {}".format(sed_best.getfeh()))
+        print("Distance: {} pc".format(best_sed.getdist()))
+        print("AV: {} mag".format(best_sed.getav()))
+        print("Radius: {} Rsun".format(best_sed.getr()[0]))
+        print("Teff: {} K".format(best_sed.getteff()[0]))
+        print("Log g: {} ".format(best_sed.getlogg()[0]))
+        print("Fe/H: {}".format(best_sed.getfeh()))
 
-    return sed_best
+    return best_sed
 
 
 def convert(sed, unit):
