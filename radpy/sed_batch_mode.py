@@ -178,7 +178,7 @@ def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fittin
 
     init_values, fit_ranges, fit_flags, model = convert_fit_params(star_name, star, fitting_param_dict, verbose=False)
 
-    sed_fit = fit_sed(phot_data, star, init_values, num_iter, model, teffrange=fit_ranges[0], loggrange=fit_ranges[1],
+    sed_fit = fit_sed(phot_data, star, init_values, num_iter, unit, model, teffrange=fit_ranges[0], loggrange=fit_ranges[1],
                       fehrange=fit_ranges[2], avrange=fit_ranges[3], fitT=fit_flags[0],
                       fit_logg=fit_flags[1], fit_feh=fit_flags[2], fit_av=fit_flags[3], verbose=verbose)
 

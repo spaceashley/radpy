@@ -227,8 +227,7 @@ def set_quality(self):
     self.sed['bad'] = q[:, 1]
     a = np.where(q[:, 3] > 0.2)[0]
     if len(a) / n < 0.3:
-        print(
-            'Warning: large number of fluxes rejected, due to IR excess, noise, or misattribution. Manual vetting suggested')
+        #print('Warning: large number of fluxes rejected, due to IR excess, noise, or misattribution. Manual vetting suggested')
         return False
     return
 
@@ -1039,9 +1038,11 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
         downloadflux(sed_obj, rand_sed)
         # downloadflux(sed_obj, sed)
         set_quality(sed_obj)
-        sed_obj.fit(use_gaia=False, idx=np.arange(0, len(sed_obj.sed['index'])), fitdist=False, fitteff=fitT,
-                    fitfeh=fit_feh,
-                    fitlogg=fit_logg, fitav=fit_av, quality_check=False)
+        f1 = io.StringIO()
+        with contextlib.redirect_stdout(f1):
+            sed_obj.fit(use_gaia=False, idx=np.arange(0, len(sed_obj.sed['index'])), fitdist=False, fitteff=fitT,
+                        fitfeh=fit_feh,
+                        fitlogg=fit_logg, fitav=fit_av, quality_check=False)
 
         numOparams = 1
         if fitT == True:
