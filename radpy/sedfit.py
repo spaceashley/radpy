@@ -1054,6 +1054,7 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
 
             if chi2r < best_chi2red:
                 best_chi2red = chi2r
+                best_chi2 = chi2s
                 import copy
                 best_sed = copy.deepcopy(x)
 
@@ -1082,6 +1083,7 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     star.fbol_err = round((fbol_err / 1e-8), 5)
 
     star.SEDchi2red = best_chi2red
+    star.SEDchi2 = best_chi2
 
     if fitT == True:
         star.SEDTeff = best_sed.getteff()[0]
