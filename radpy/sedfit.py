@@ -1031,7 +1031,7 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     print(f"Starting {num_iter} iterations...")
     overall_start = time.time()
 
-    with contextlib.redirect_stdout(io.String.IO()):
+    with contextlib.redirect_stdout(io.StringIO()):
         for i in range(num_iter):
             iter_start = time.time()
 
