@@ -257,7 +257,7 @@ def convert_names_to_latex(names):
 
 
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, ldc_method, mc_num=71, bs_num=71,
-                 set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
+                 set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, uselatex = False, verbose=True):
     ##################################################################
     # Function: process_star                                         #
     # Inputs: star_name -> name of star                              #
@@ -394,6 +394,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         eq_text=True,
         set_axis=set_axis,
         title=star_title[0],
+        uselatex = uselatex,
         show=False
     )
     starID = star_name.replace(" ", "")
@@ -410,6 +411,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         title=star_title[0],
         set_axis=set_axis,
         eq_text=True,
+        uselatex = uselatex,
         show=False
     )
     save_plot(fig2, plot_dir, starID, "LDfit", image_ext)
@@ -460,7 +462,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, verbose=True):
+def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, uselatex = False, verbose=True):
     ######################################################
     # Function: batch_mode                               #
     # Inputs: star_file -> stellar param file            #
@@ -501,7 +503,7 @@ def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71
     count = 0
     for star_name in star_names:
         process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num, set_axis = set_axis,
-                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, ldc_method = ldc_method, v0_flag = v0_flag, verbose=verbose)
+                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, ldc_method = ldc_method, v0_flag = v0_flag, uselatex = uselatex, verbose=verbose)
         count += 1
 
     latex_df = pd.DataFrame(latex_rows)

@@ -65,7 +65,7 @@ def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
 ##########################################################################################
 def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 datasets_to_plot=None, plot_ldmodel=False, plot_udmodel=False,
-                to_bin=None, v0_flag = False, title=None, set_axis=None, savefig=None, show=True):
+                to_bin=None, v0_flag = False, title=None, set_axis=None, uselatex = False, savefig=None, show=True):
     ###########################################################################
     # Function: plot_v2_fit                                                   #
     # Inputs: data_dict -> dict of InterferometryData objects,                #
@@ -132,6 +132,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     plt.rcParams.update({'font.size': 18})
     plt.rcParams['xtick.direction'] = 'in'
     plt.rcParams['ytick.direction'] = 'in'
+    plt.rcParams['text.usetex'] = uselatex
     f, (a0, a1) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [10, 3]}, sharex=True)
 
     if datasets_to_plot is None:
