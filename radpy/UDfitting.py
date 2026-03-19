@@ -364,7 +364,7 @@ def udfit_values(x, y, dy, mc_results, stellar_params, v0_flag = False, verbose=
         avg_UD = np.mean(UD)
         std_UD = mad_std(UD)
 
-        chisq, chisqr = chis(y, UDV2(x, avg_UD), y, 1)
+        chisq, chisqr = chis(y, UDV2(x, avg_UD), dy, 1)
         teff_ud = temp(stellar_params.fbol, stellar_params.fbol_err, avg_UD, std_UD)
 
         stellar_params.update(teff=round(teff_ud[0],5), teff_err=round(teff_ud[1],5), udtheta=round(avg_UD,5), udtheta_err=round(std_UD,5))
