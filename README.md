@@ -128,6 +128,8 @@ If you use `RADPy` in your research, please cite it through the following:
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17488122.svg)](https://doi.org/10.5281/zenodo.19444006)
 
+Official paper is coming soon.
+
 In addition, if you decide to use the SED fitting feature and/or the photometry extraction for SED fitting, please cite the following as well:
 
 `astroARIADNE` (if using the photometry extraction for SED fitting):
