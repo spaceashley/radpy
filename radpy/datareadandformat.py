@@ -215,8 +215,8 @@ def brackets(df, instrument):
     # Vega is uncertain for now but will be date im fairly certain
     if instrument == 'M' or instrument == 'm':
         pd.set_option('display.float_format', '{:.12f}'.format)
-        sorted_df = df.sort_values(by='MJD')
-        sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup() + 1
+        sorted_df = df.sort_values(by='UCOORD[m]')
+        sorted_df['Bracket'] = sorted_df.groupby('UCOORD[m]').ngroup() + 1
         return sorted_df
     if instrument == 'P' or instrument == 'p':
         pd.set_option('display.float_format', '{:.12f}'.format)
@@ -234,8 +234,8 @@ def brackets(df, instrument):
         return sorted_df
     if instrument == 'My' or instrument == 'my':
         pd.set_option('display.float_format', '{:.12f}'.format)
-        sorted_df = df.sort_values(by='MJD')
-        sorted_df['Bracket'] = sorted_df.groupby('MJD').ngroup() + 1
+        sorted_df = df.sort_values(by='UCOORD[m]')
+        sorted_df['Bracket'] = sorted_df.groupby('UCOORD[m]').ngroup() + 1
         return sorted_df
     if instrument == 'V' or instrument == 'v':
         pd.set_option('display.float_format', '{:.12f}'.format)
