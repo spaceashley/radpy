@@ -116,11 +116,11 @@ For limb-darkened disk diameters, `RADPy` follows a similar structure to the uni
 
 ## Tutorial notebooks
 
-For a tutorial for single stars, go here: <https://github.com/spaceashley/radpy/blob/main/tests/SingleStarTutorial.ipynb>
+For a tutorial for single stars, go here: <[https://github.com/spaceashley/radpy/blob/main/tests/SingleStarTutorial.ipynb](https://github.com/spaceashley/radpy/blob/main/tutorials/DiameterFittingTutorial_SingleStar.ipynb)>
 
-For a tutorial on how to use batch mode, go here: <https://github.com/spaceashley/radpy/blob/main/tests/BatchModeTutorial.ipynb>
+For a tutorial on how to use batch mode, go here: <[https://github.com/spaceashley/radpy/blob/main/tests/BatchModeTutorial.ipynb](https://github.com/spaceashley/radpy/blob/main/tutorials/DiameterFittingTutorial_BatchMode.ipynb)>
 
-For a tutorial on how to use the SED fitting feature, go here: <https://github.com/spaceashley/radpy/blob/main/tests/SED%20Fitting%20Tutorial.ipynb>
+For a tutorial on how to use the SED fitting feature, go here: <[https://github.com/spaceashley/radpy/blob/main/tests/SED%20Fitting%20Tutorial.ipynb](https://github.com/spaceashley/radpy/blob/main/tutorials/SEDFittingTutorial_SingleStar.ipynb)>
 
 ## How to Cite
 
