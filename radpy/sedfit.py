@@ -154,7 +154,7 @@ def definefilter(self, tmass=True, cousins=True, gaia=True, galex=True, johnson=
 
 
 def downloadflux(self, userinput, deletevot=True, **kwargs):
-    target = str(self.ra) + '%20' + str(self.dec)
+    #target = str(self.ra) + '%20' + str(self.dec)
     good = False
     if userinput is not None:
         self.sed = userinput
@@ -216,18 +216,29 @@ def downloadflux(self, userinput, deletevot=True, **kwargs):
 def set_quality(self):
     with open(pkg_resources.resource_filename('SEDFit', 'quality.p'), 'rb') as file:
         model = pickle.load(file)
+
     n = len(self.sed)
-    input = np.zeros((n, 42, 2)) - 1
-    input[:, self.sed['index'].astype(int), 0] = np.tile(np.max(self.sed['flux']) - self.sed['flux'], (n, 1))
-    input[:, :, 1] = 0
-    input[range(len(self.sed)), self.sed['index'], 1] = 1
-    q = np.round(model.predict(input, verbose=0), 3)
+
+    # Keep dtype stable for TensorFlow
+    inp = np.full((n, 42, 2), -1.0, dtype=np.float32)
+
+    # Build index arrays once, with stable dtypes
+    sed_idx = np.asarray(self.sed['index'], dtype=np.int32)
+    flux = np.asarray(self.sed['flux'], dtype=np.float32)
+
+    inp[:, sed_idx, 0] = np.tile(np.max(flux) - flux, (n, 1))
+    inp[:, :, 1] = 0.0
+    inp[np.arange(n, dtype=np.int32), sed_idx, 1] = 1.0
+
+    # Call model directly (often less retracing-prone than predict in loops)
+    pred = model(tf.convert_to_tensor(inp, dtype=tf.float32), training=False)
+    q = np.round(pred.numpy(), 3)
+
     self.sed['valid'] = q[:, 3]
     self.sed['excess'] = q[:, 2]
     self.sed['bad'] = q[:, 1]
     a = np.where(q[:, 3] > 0.2)[0]
     if len(a) / n < 0.3:
-        #print('Warning: large number of fluxes rejected, due to IR excess, noise, or misattribution. Manual vetting suggested')
         return False
     return
 
@@ -997,17 +1008,18 @@ def fit_sed(sed, star, initial_guess, num_iter, unit, model, teffrange=None, log
     dec = star.dec_dms
     if verbose:
         print("Initializing SEDFit object...")
-    f = io.StringIO()
-    with contextlib.redirect_stdout(f):
-        try:
-            x = SEDFit(ra, dec, 1, use_gaia_params=False, use_gaia_xp=False, grid_type=model)
-            x.addguesses(r=[1])
-        except AttributeError:
-            x = SEDFit(ra, dec, 0.5, use_gaia_params=False, use_gaia_xp=False, grid_type=model)
-
+    #f = io.StringIO()
+    #with contextlib.redirect_stdout(f):
+    #    try:
+    #        x = SEDFit(ra, dec, 1, use_gaia_params=False, use_gaia_xp=False, grid_type=model)
+    #        x.addguesses(r=[1])
+    #    except AttributeError:
+    #        x = SEDFit(ra, dec, 0.5, use_gaia_params=False, use_gaia_xp=False, grid_type=model)
+    x = SEDFit(' ', ' ', 1, use_gaia_params = False, use_gaia_xp = False, grid_type = model)
+    downloadflux(x, userinput = sed)
     teff, logg, feh, av = initial_guess
     x.dist = d
-    x.addguesses(teff=teff, logg=logg, feh=feh, av=av)
+    x.addguesses(dist = d, av = av, r = [1.], teff=[teff], logg=[logg], feh=feh, alpha = 0., area = False)
 
     if teffrange is not None:
         x.addrange(teff=teffrange)
