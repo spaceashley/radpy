@@ -116,18 +116,19 @@ For limb-darkened disk diameters, `RADPy` follows a similar structure to the uni
 
 ## Tutorial notebooks
 
-For a tutorial for single stars, go here: <https://github.com/spaceashley/radpy/blob/main/tests/SingleStarTutorial.ipynb>
+For a tutorial for single stars, go here: <[https://github.com/spaceashley/radpy/blob/main/tests/SingleStarTutorial.ipynb](https://github.com/spaceashley/radpy/blob/main/tutorials/DiameterFittingTutorial_SingleStar.ipynb)>
 
-For a tutorial on how to use batch mode, go here: <https://github.com/spaceashley/radpy/blob/main/tests/BatchModeTutorial.ipynb>
+For a tutorial on how to use batch mode, go here: <[https://github.com/spaceashley/radpy/blob/main/tests/BatchModeTutorial.ipynb](https://github.com/spaceashley/radpy/blob/main/tutorials/DiameterFittingTutorial_BatchMode.ipynb)>
 
-For a tutorial on how to use the SED fitting feature, go here: <https://github.com/spaceashley/radpy/blob/main/tests/SED%20Fitting%20Tutorial.ipynb>
+For a tutorial on how to use the SED fitting feature, go here: <[https://github.com/spaceashley/radpy/blob/main/tests/SED%20Fitting%20Tutorial.ipynb](https://github.com/spaceashley/radpy/blob/main/tutorials/SEDFittingTutorial_SingleStar.ipynb)>
 
 ## How to Cite
 
 If you use `RADPy` in your research, please cite it through the following:
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17488122.svg)](https://doi.org/10.5281/zenodo.19444006)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17488122.svg)](https://doi.org/10.5281/zenodo.17488122)
+Official paper is coming soon.
 
 In addition, if you decide to use the SED fitting feature and/or the photometry extraction for SED fitting, please cite the following as well:
 
