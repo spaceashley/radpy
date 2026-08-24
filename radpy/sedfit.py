@@ -23,7 +23,7 @@ from radpy.stellar import check_if_string
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 
 pyphot.config.set_units_backend('pint')
-dustmaps.sfd.fetch()
+#dustmaps.sfd.fetch()
 
 import warnings
 warnings.filterwarnings("ignore")
