@@ -78,7 +78,7 @@ def random_bracket_ld(df, num_of_brackets):
     return spf_br, v2_br, dv2_br, ldc_br, wavgs
 
 ##########################################################################################
-def initial_LDfit(spf, v2, dv2, star_params, filt, ldc_method, v0_flag = False, verbose=False):
+def initial_LDfit(spf, v2, dv2, star_params, filt, ldc_method, v0_flag = False, verbose=False, debug = False):
     #####################################################################
     # Function: initial_LDfit                                           #
     # Inputs: spf -> spatial frequency                                  #
@@ -106,7 +106,6 @@ def initial_LDfit(spf, v2, dv2, star_params, filt, ldc_method, v0_flag = False, 
     #####################################################################
     t, dt = temp(star_params.fbol, star_params.fbol_err, star_params.udthetai, star_params.udthetai_err)
     ldc = ldc_calc(t, star_params.logg, star_params.feh, filt, ldc_method)
-
     if not np.isfinite(ldc):
         prev = ldc
         if np.isfinite(prev):
