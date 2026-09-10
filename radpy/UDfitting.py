@@ -246,6 +246,7 @@ def udfit(df, stellar_params, v0_flag = False, verbose=False):
         #print("No scaling used")
         udmodel = Model(UDV2)
         ud_params = udmodel.make_params(theta=stellar_params.udthetai)
+        ud_params['theta'].set(min=0.0001, max=100)
         ud_result = udmodel.fit(df['V2'], ud_params, sf=df['Spf'], weights=1 / (df['dV2']), scale_covar=True)
         theta_ud = ud_result.uvars['theta'].n
         return ((theta_ud))
@@ -253,6 +254,7 @@ def udfit(df, stellar_params, v0_flag = False, verbose=False):
         #print("Scaling used")
         udmodel = Model(scaledUDV2)
         ud_params = udmodel.make_params(theta=stellar_params.udthetai, V0 = stellar_params.udv0i)
+        ud_params['theta'].set(min=0.0001, max=100)
         ud_result = udmodel.fit(df['V2'], ud_params, sf=df['Spf'], weights=1 / (df['dV2']), scale_covar=True)
         theta_ud = ud_result.uvars['theta'].n
         v0_ud = ud_result.uvars['V0'].n

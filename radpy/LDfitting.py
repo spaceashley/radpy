@@ -106,6 +106,16 @@ def initial_LDfit(spf, v2, dv2, star_params, filt, ldc_method, v0_flag = False, 
     #####################################################################
     t, dt = temp(star_params.fbol, star_params.fbol_err, star_params.udthetai, star_params.udthetai_err)
     ldc = ldc_calc(t, star_params.logg, star_params.feh, filt, ldc_method)
+
+    if not np.isfinite(ldc):
+        prev = ldc
+        if np.isfinite(prev):
+            ldc = prev
+        else:
+            ldc = 0.20 if filt == 'H' else 0.16 if filt == 'K' else 0.30
+        if debug:
+            print(f"[WARN] ldc_calc returned {ldc_val} fallback for filter {filt}")
+
     if not v0_flag:
         #print("No Scaling used")
         ldmodel = Model(V2, independent_vars=['sf', 'mu'])
@@ -192,7 +202,7 @@ def ldfit(df, stellar_params, v0_flag = False, verbose=False):
         #print("No scaling use")
         ldmodel = Model(V2, independent_vars=['sf', 'mu'])
         ld_params = ldmodel.make_params(theta=stellar_params.udtheta)
-        ld_params['theta'].set(min=0.001, max = 100)
+        ld_params['theta'].set(min=0.0001, max = 100)
         ld_result = ldmodel.fit(df['V2'], ld_params, sf=df['Spf'], mu=df['LDC'], weights=1 / (df['dV2']), scale_covar=True)
         theta_ld, _ = safe_theta_extraction(ld_result)
         #theta_ld = ld_result.uvars['theta'].n
@@ -201,7 +211,7 @@ def ldfit(df, stellar_params, v0_flag = False, verbose=False):
         #print("Scaling used")
         ldmodel = Model(scaledV2, independent_vars=['sf', 'mu'])
         ld_params = ldmodel.make_params(theta=stellar_params.udtheta, V0 = 1.0)
-        ld_params['theta'].set(min=0.001, max=100)
+        ld_params['theta'].set(min=0.0001, max=100)
         ld_result = ldmodel.fit(df['V2'], ld_params, sf=df['Spf'], mu=df['LDC'], weights=1 / (df['dV2']), scale_covar=True)
         theta_ld, _,v0_ld, _ = safe_thetaV0_extraction(ld_result)
         #theta_ld = ld_result.uvars['theta'].n
@@ -444,7 +454,16 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_f
                 ldc_val = ldc_calc(stellar_params.teff,
                                    stellar_params.logg,
                                    stellar_params.feh, filt, ldc_method)
-                ldc_per_filter[filt] = ldc_val
+                if not np.isfinite(ldc_val):
+                    prev = ldc_per_filter.get(filt, np.nan)
+                    if np.isfinite(prev):
+                        ldc_val = prev
+                    else:
+                        ldc_val = 0.20 if filt == 'H' else 0.16 if filt == 'K' else 0.30
+                    if debug:
+                        print(f"[WARN] ldc_calc returned {ldc_val} fallback for filter {filt}"
+                              f"(teff={stellar_params.teff}, logg={stellar_params.logg}, feh={stellar_params.feh})")
+                ldc_per_filter[filt] = float(ldc_val)
 
         mc_args = []
         for _ in range(mc_num):
