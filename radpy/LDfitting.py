@@ -192,6 +192,7 @@ def ldfit(df, stellar_params, v0_flag = False, verbose=False):
         #print("No scaling use")
         ldmodel = Model(V2, independent_vars=['sf', 'mu'])
         ld_params = ldmodel.make_params(theta=stellar_params.udtheta)
+        ld_params['theta'].set(min=0.001, max = 100)
         ld_result = ldmodel.fit(df['V2'], ld_params, sf=df['Spf'], mu=df['LDC'], weights=1 / (df['dV2']), scale_covar=True)
         theta_ld, _ = safe_theta_extraction(ld_result)
         #theta_ld = ld_result.uvars['theta'].n
@@ -200,6 +201,7 @@ def ldfit(df, stellar_params, v0_flag = False, verbose=False):
         #print("Scaling used")
         ldmodel = Model(scaledV2, independent_vars=['sf', 'mu'])
         ld_params = ldmodel.make_params(theta=stellar_params.udtheta, V0 = 1.0)
+        ld_params['theta'].set(min=0.001, max=100)
         ld_result = ldmodel.fit(df['V2'], ld_params, sf=df['Spf'], mu=df['LDC'], weights=1 / (df['dV2']), scale_covar=True)
         theta_ld, _,v0_ld, _ = safe_thetaV0_extraction(ld_result)
         #theta_ld = ld_result.uvars['theta'].n
