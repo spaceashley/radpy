@@ -6,6 +6,134 @@ from radpy.LDfitting import V2, scaledV2
 plt.rcParams['text.usetex'] = True
 
 
+def assign_inst_night_v0s(fitted_v0s, datasets):
+    ###########################################################
+    # Function: assign_inst_night_v0s                         #
+    # Inputs: fitted_v0s -> dictionary fo the v0 values       #
+    #                       assigned to each night/instrument #
+    #         datasets -> datasets being fitted               #
+    # Outputs: InterferometryData object with the attribute   #
+    #          V0s added to it                                #
+    # What it does:                                           #
+    #       1. Generated a list from the v0 dictionary keys   #
+    #       2. Renames each key with an underscore            #
+    #       3. Searches each dataset and matches the correct  #
+    #          V0 value with the correct night and instrument #
+    #       4. Adds the values to each InterferometryData     #
+    #          object.                                        #
+    ###########################################################
+
+    v0_keys = list(fitted_v0s.keys())
+    for i in range(len(v0_keys)):
+        string = v0_keys[i]
+        base_id = re.sub(r'[\W_]+', '', string)
+        match = re.match(r'([A-Za-z]+)[\s_-]*(\d+)', base_id)
+        prefix, number = match.groups()
+
+        if prefix == 'MY' and datasets.instrument == 'my':
+            for m_y in range(len(datasets.Night)):
+                if datasets.Night[m_y] == float(number):
+                    datasets.V0s[m_y] = fitted_v0s[string]
+        if prefix == 'M' and datasets.instrument == 'm':
+            for m_x in range(len(datasets.Night)):
+                if datasets.Night[m_x] == float(number):
+                    datasets.V0s[m_x] = fitted_v0s[string]
+        if prefix == 'S':
+            for s in range(len(spica_data.Night)):
+                if spica_data.Night[s] == float(number):
+                    spica_data.V0s[s] = fitted_v0s[string]
+
+
+def V2_wrapper(star, wave, spf):
+    #########################################################
+    # Function: V2_wrapper                                  #
+    # Inputs: star -> StellarParams() object                #
+    #         wave -> wavelength array from the combined    #
+    #                 data                                  #
+    #         spf -> spatial frequnecy array from the       #
+    #                combined data                          #
+    # Outputs: y -> V2 values                               #
+    # What it does:                                         #
+    #        1. Reads in the theta value                    #
+    #        2. Creates an empty array.                     #
+    #        3. Reads in the ldc values                     #
+    #        4. If each ldc is not None, applies a mask to  #
+    #           the spf data according the the wavelength   #
+    #        5. Calculates the V2 value using the ldc and   #
+    #           theta value for each mask.                  #
+    #        6. Adds the V2 value to the empty array for    #
+    #           each mask.                                  #
+    #########################################################
+    theta = star.ldtheta
+    y = np.empty_like(spf)
+
+    ldcK = star.ldc_K
+    ldcH = star.ldc_H
+    ldcR = star.ldc_R
+
+    if ldcK is not None:
+        maskK = (wave > 1.85e-6)
+        spfK = spf[maskK]
+        y[maskK] = V2(spfK, theta, ldcK)
+    if ldcH is not None:
+        maskH = (wave < 1.85e-6) & (wave > 9.5e-9)
+        spfH = spf[maskH]
+        y[maskH] = V2(spfH, theta, ldcH)
+    if ldcR is not None:
+        maskR = (wave < 9.5e-9)
+        spfR = spf[maskR]
+        y[maskR] = V2(spfR, theta, ldcR)
+
+    return y
+
+
+def create_ldc_label(star):
+    m_labels = []
+    if star.ldc_H is not None:
+        model_label = fr"$\rm \mu_H = {star.ldc_H:0.5}$"
+        m_labels.append(model_label)
+    if star.ldc_K is not None:
+        model_label = fr"$ \rm \mu_K = {star.ldc_K:0.5}$"
+        m_labels.append(model_label)
+    if star.ldc_R is not None:
+        model_label = fr"$ \rm \mu_R = {star.ldc_R:0.5}$"
+        m_labels.append(model_label)
+
+    if len(m_labels) == 1:
+        ldc_label = m_label[0]
+        return ldc_label
+
+    if len(m_labels) == 2:
+        ldc_label = '{0} \n{1}'.format(m_labels[0], m_labels[1])
+        return ldc_label
+
+    if len(m_labels) == 3:
+        ldc_label = '{0} \n{1} \n{2}'.format(m_labels[0], m_labels[1], m_labels[2])
+        return ldc_label
+
+
+def extract_v0s_for_latex(star):
+    fitted_v0s = star.ldv02_by_group
+    fitted_dv0s = star.ldv02_err_by_group
+
+    v0_rows = []
+    for key, value in fitted_v0s.items():
+        v0_rows.append({r"$V_{0}^{2}$ " + key: value, })
+
+    dv0_rows = []
+    for dkey, dvalue in fitted_dv0s.items():
+        dv0_rows.append({r"$\Delta V_{0}^{2}$ " + dkey: dvalue, })
+
+    base_v0s = {}
+    base_dv0s = {}
+    for i in range(len(v0_rows)):
+        base_v0s.update(v0_rows[i])
+        base_dv0s.update(dv0_rows[i])
+
+    v0dv0 = base_v0s | base_dv0s
+
+    return v0dv0
+
 # Function to bin the PAVO data
 def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
     ###########################################################################
@@ -63,9 +191,9 @@ def bin_data(x, y, dy, bin_width=5e6, min_points_per_bin=1):
     return np.array(avg_x), np.array(avg_y), np.array(avg_dy)
 
 ##########################################################################################
-def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
+def plot_v2_fit(data_dict, star, line_spf=None, eq_text=False,
                 datasets_to_plot=None, plot_ldmodel=False, plot_udmodel=False,
-                to_bin=None, v0_flag = False, title=None, set_axis=None, uselatex = False, savefig=None, show=True):
+                to_bin=None, v0_flag=False, title=None, set_axis=None, uselatex=False, savefig=None, show=True):
     ###########################################################################
     # Function: plot_v2_fit                                                   #
     # Inputs: data_dict -> dict of InterferometryData objects,                #
@@ -73,8 +201,6 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
     #         star-> star object with .theta and .ldc* attributes             #
     #                (ldcR, ldcK, etc.), and .V2(line_spf, theta, ldc)        #
     #         line_spf -> x values for model curve                            #
-    #         ldc_band -> string (e.g. "ldcR", "ldcK") for which LDC          #
-    #                     coefficient to use                                  #
     #         eq_text -> optional string for annotation                       #
     #         datasets_to_plot-> list of keys in data_dict to plot            #
     #                            (default: all)                               #
@@ -166,7 +292,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'pavo': r'$\rm PAVO$',
         'classic': r'$\rm Classic$',
         'vega': r'$\rm VEGA$',
-        'mircx': r'$\rm MIRC-X$',
+        'mircx': r'$\rm MIRCX$',
         'mystic': r'$\rm MYSTIC$',
         'spica': r'$\rm SPICA$'
     }
@@ -174,7 +300,7 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'pavo': r'$\rm PAVO~(binned)$',
         'classic': r'$\rm Classic~(binned)$',
         'vega': r'$\rm VEGA~(binned)$',
-        'mircx': r'$\rm MIRC-X~(binned)$',
+        'mircx': r'$\rm MIRCX~(binned)$',
         'mystic': r'$\rm MYSTIC~(binned)$',
         'spica': r'$\rm SPICA~(binned)$'
     }
@@ -187,6 +313,15 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         'spica': 0.15
     }
 
+    band_map = {
+        'mircx': 'H',
+        'mystic': 'K',
+        'classic': 'H',
+        'pavo': 'R',
+        'vega': 'R',
+        'spica': 'R'
+    }
+
     if set_axis and line_spf is None:
         xmin = set_axis[0]
         xmax = set_axis[1]
@@ -197,17 +332,22 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         line_spf = np.linspace(0.00001, xmax, 1000)
     else:
         all_spf = []
+        ldcs = []
         for key in datasets_to_plot:
             data = data_dict[key]
             spf = np.array(data.B) / np.array(data.Wave)
             all_spf.extend(spf)
-        all_spf = np.array(all_spf)
-        max_spf = np.max(all_spf)
-        line_spf = np.linspace(0.00001, max_spf * 1.1, 1000)  # slight padding
 
+        all_spf = np.array(all_spf)
+        min_spf = np.min(all_spf)
+        max_spf = np.max(all_spf)
+        line_spf = np.linspace(min_spf, max_spf, 1000)  # slight padding
+    if v0_flag:
+        fitted_v0s = star.ldv02_by_group
     # --- Top: V2 ---
     for key in datasets_to_plot:
         data = data_dict[key]
+        data.V0s = np.ones(len(data.B))
         color = color_map.get(key, None)
         bin_color = binned_color_map.get(key, None)
         bin_label = binlabel_map.get(key, None)
@@ -216,56 +356,65 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         alpha = alpha_map.get(key, 0.5)
         spf = np.array(data.B) / np.array(data.Wave)
 
+        if v0_flag:
+            y_data = data.V2 / data.V0s
+            assign_inst_night_v0s(fitted_v0s, data)
+        else:
+            y_data = data.V2
+
         is_binned = to_bin and key in to_bin
         # Always plot both, but only one gets the label
         if is_binned:
             # Plot unbinned points, no label
-            a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
-            a0.errorbar(spf, data.V2, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
-                        color=color,
-                        capsize=3, alpha=alpha)
+            a0.plot(spf, y_data, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
+            a0.errorbar(spf, y_data, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
+                        color=color, capsize=3, alpha=alpha)
             # Plot binned points, with label
-            binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
+            binned_spf, binned_v2, binned_dv2 = bin_data(spf, y_data, data.dV2)
             a0.plot(binned_spf, binned_v2, linestyle='None', marker=marker, markersize=6, color=bin_color,
-                    label=bin_label)
+                    label=label)
             a0.errorbar(binned_spf, binned_v2, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                         color=bin_color,
                         capsize=3)
         else:
             # Plot unbinned points, with label
-            a0.plot(spf, data.V2, linestyle='None', marker=marker, markersize=6, color=color, alpha=alpha, label=label)
-            a0.errorbar(spf, data.V2, yerr=abs(data.dV2), fmt=marker, markersize=6, linestyle='None', linewidth=0.5,
-                        color=color,
-                        capsize=3, alpha=alpha)
+            a0.plot(spf, y_data, linestyle='None', marker=marker, markersize=6, color=color, alpha=alpha, label=label)
+            a0.errorbar(spf, y_data, yerr=abs(data.dV2), fmt=marker, markersize=6, linestyle='None', linewidth=0.5,
+                        color=color, capsize=3, alpha=alpha)
     # --- Model ---
     if plot_ldmodel:
         if not v0_flag:
-            ldc_value = getattr(star, ldc_band, None)
+            # ldc_value = np.ones(len(spf))*getattr(star, ldc_band, None)
             theta = getattr(star, "ldtheta", None)
             dtheta = getattr(star, "ldtheta_err", None)
-            if ldc_value is not None and theta is not None:
-                model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
-                a0.plot(line_spf, V2(line_spf, theta, ldc_value), '--', color='black', label=model_label)
+            model_wl = 2.2e-6
+            wl_plot = np.full_like(line_spf, model_wl)
+            y_plot = V2_wrapper(star, wl_plot, line_spf)
+            if theta is not None:
+                model_label = create_ldc_label(star)
+                a0.plot(line_spf, y_plot, '--', color='black', label=model_label)
                 if eq_text:
                     eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                     a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
 
             else:
-                print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
+                print(f"Warning: ldtheta not present for star, skipping model plot.")
         if v0_flag:
-            ldc_value = getattr(star, ldc_band, None)
             theta = getattr(star, "ldtheta", None)
             dtheta = getattr(star, "ldtheta_err", None)
-            v0 = getattr(star, "ldv02", None)
-            if ldc_value is not None and theta is not None:
-                model_label = fr"$ \rm Model ({ldc_band.replace('ldc_', '').upper()})$"
-                a0.plot(line_spf, scaledV2(line_spf, theta, ldc_value, np.sqrt(v0)), '--', color='black', label=model_label)
+            model_wl = 2.2e-6
+            wl_plot = np.full_like(line_spf, model_wl)
+            y_plot = V2_wrapper(star, wl_plot, line_spf)
+
+            if theta is not None:
+                model_label = create_ldc_label(star)
+                a0.plot(line_spf, y_plot, '--', color='black', label=model_label)
                 if eq_text:
                     eq1 = fr"$\theta_{{\rm LD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                     a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
 
             else:
-                print(f"Warning: {ldc_band} or ldtheta not present for star, skipping model plot.")
+                print(f"Warning: ldtheta not present for star, skipping model plot.")
 
     if plot_udmodel:
         if not v0_flag:
@@ -282,10 +431,9 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         if v0_flag:
             theta = getattr(star, "udtheta", None)
             dtheta = getattr(star, "udtheta_err", None)
-            v0 = getattr(star, "udv02", None)
             if theta is not None:
                 model_label = fr"$\rm Uniform~Disk~Model$"
-                a0.plot(line_spf, scaledUDV2(line_spf, theta, np.sqrt(v0)), '--', color='black', label=model_label)
+                a0.plot(line_spf, UDV2(line_spf, theta), '--', color='black', label=model_label)
                 if eq_text:
                     eq1 = fr"$\theta_{{\rm UD}} = {round(theta, 3):.3f} \pm {round(dtheta, 3):.3f} \rm ~mas$"
                     a0.text(0.05, 0.05, eq1, transform=a0.transAxes, color='black', fontsize=15)
@@ -293,9 +441,9 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
                 print(f"Warning: udtheta not present for star, skipping model plot.")
 
     if len(datasets_to_plot) > 1:
-        a0.legend(fontsize=12)
+        a0.legend(fontsize=12, loc='upper right')
 
-    a0.set_ylabel(r'$V^2$', labelpad=17)
+    a0.set_ylabel(r'$V^2$', labelpad=25)
     a0.tick_params(axis='x', labelbottom=False)
     a0.xaxis.set_minor_locator(AutoMinorLocator())
     a0.yaxis.set_minor_locator(AutoMinorLocator())
@@ -309,17 +457,19 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
         marker = marker_map.get(key, '.')
         alpha = alpha_map.get(key, 0.5)
         spf = np.array(data.B) / np.array(data.Wave)
-
+        if v0_flag:
+            y_data = data.V2 / data.V0s
+        else:
+            y_data = data.V2
         is_binned = to_bin and key in to_bin  # e.g. to_bin = ['pavo']
 
         # --- Model and Residuals for Unbinned ---
-        if plot_ldmodel and ldc_value is not None and theta is not None:
-            if not v0_flag:
-                model_v2 = V2(spf, theta, ldc_value)
-                residuals = np.array(data.V2) - model_v2
-            elif v0_flag:
-                model_v2 = scaledV2(spf, theta, ldc_value, np.sqrt(v0))
-                residuals = np.array(data.V2) - model_v2
+        if plot_ldmodel and theta is not None:
+            model_wl = 2.2e-6
+            wl_plot = np.full_like(spf, model_wl)
+            model_v2 = V2_wrapper(star, wl_plot, spf)
+            # model_v2 = V2(spf, theta, ldc_value)
+            residuals = np.array(y_data) - model_v2
 
             a1.plot(spf, residuals, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
             a1.errorbar(spf, residuals, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
@@ -328,38 +478,29 @@ def plot_v2_fit(data_dict, star, line_spf=None, ldc_band=None, eq_text=False,
 
             # --- Model and Residuals for Binned ---
             if is_binned:
-                binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
-                if not v0_flag:
-                    model_binv2 = V2(binned_spf, theta, ldc_value)
-                    binned_res = binned_v2 - model_binv2
-                elif v0_flag:
-                    model_binv2 = scaledV2(binned_spf, theta, ldc_value, np.sqrt(v0))
-                    binned_res = binned_v2 - model_binv2
+                binned_spf, binned_v2, binned_dv2 = bin_data(spf, y_data, data.dV2)
+                model_wl = 2.2e-6
+                binned_wv = np.full_like(binned_spf, model_wl)
+                model_binv2 = V2_wrapper(star, binned_wv, binned_spf)
+                # model_binv2 = V2_wrapper(sta
+                binned_res = binned_v2 - model_binv2
                 a1.plot(binned_spf, binned_res, linestyle='None', marker=marker, markersize=6, color=bin_color)
                 a1.errorbar(binned_spf, binned_res, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                             color=bin_color, capsize=3)
 
         # --- (Repeat similar for UD model if desired) ---
         if plot_udmodel and theta is not None:
-            if not v0_flag:
-                model_udv2 = UDV2(spf, theta)
-                ud_res = np.array(data.V2) - model_udv2
-            elif v0_flag:
-                model_udv2 = scaledUDV2(spf, theta, np.sqrt(v0))
-                ud_res = np.array(data.V2) - model_udv2
+            model_udv2 = UDV2(spf, theta)
+            ud_res = np.array(y_data) - model_udv2
             a1.plot(spf, ud_res, linestyle='None', marker=marker, markersize=3, color=color, alpha=alpha)
             a1.errorbar(spf, ud_res, yerr=abs(data.dV2), fmt=marker, markersize=3, linestyle='None', linewidth=0.5,
-                        color=color, capsize=5,
-                        alpha=alpha)
+                        color=color, capsize=5, alpha=alpha)
 
             if is_binned:
-                binned_spf, binned_v2, binned_dv2 = bin_data(spf, data.V2, data.dV2)
-                if not v0_flag:
-                    model_binudv2 = UDV2(binned_spf, theta)
-                    binned_udres = binned_v2 - model_binudv2
-                elif v0_flag:
-                    model_binudv2 = scaledUDV2(binned_spf, theta, np.sqrt(v0))
-                    binned_udres = binned_v2 - model_binudv2
+                binned_spf, binned_v2, binned_dv2 = bin_data(spf, y_data, data.dV2)
+                model_binudv2 = UDV2(binned_spf, theta)
+                binned_udres = binned_v2 - model_binudv2
+
                 a1.plot(binned_spf, binned_udres, linestyle='None', marker=marker, markersize=6, color=bin_color)
                 a1.errorbar(binned_spf, binned_udres, yerr=abs(binned_dv2), fmt=marker, linestyle='None', markersize=6,
                             color=bin_color, capsize=3)

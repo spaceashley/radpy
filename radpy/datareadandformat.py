@@ -13,7 +13,8 @@ def check_multidatasets(fitsfile, verbose = False):
         print("Nights:", count)
     return count
 
-def unpack_multidatasets(fitsfile, count, verbose = False):
+
+def unpack_multidatasets(fitsfile, count, verbose=False):
     if count > 1:
         v2_list = []
         dv2_list = []
@@ -23,11 +24,12 @@ def unpack_multidatasets(fitsfile, count, verbose = False):
         time_list = []
         wl_list = []
         band_list = []
-        if verbose:
-            print("Multiple nights")
+        night_list = []
+        # if verbose:
+        # print("There are", count, "nights in the data sets.")
         for i in range(count):
-            if verbose:
-                print("Version:", i + 1)
+            # if verbose:
+            # print("Night:", i + 1)
             v2 = fitsfile["OI_VIS2", i + 1].data["VIS2DATA"]
             dv2 = fitsfile["OI_VIS2", i + 1].data["VIS2ERR"]
             ucoord = fitsfile["OI_VIS2", i + 1].data["UCOORD"]
@@ -36,10 +38,10 @@ def unpack_multidatasets(fitsfile, count, verbose = False):
             time = fitsfile["OI_VIS2", i + 1].data["TIME"]
             wl = fitsfile["OI_WAVELENGTH", i + 1].data["EFF_WAVE"]
             band = fitsfile["OI_WAVELENGTH", i + 1].data["EFF_BAND"]
-
             wll = [wl.tolist() for _ in range(len(v2))]
             bandl = [band.tolist() for _ in range(len(v2))]
 
+            # night_list.append(num_nights)
             v2_list.append(v2)
             dv2_list.append(dv2)
             uc_list.append(ucoord)
@@ -48,11 +50,16 @@ def unpack_multidatasets(fitsfile, count, verbose = False):
             time_list.append(time)
             wl_list.append(wll)
             band_list.append(bandl)
+
         pd.set_option('display.float_format', '{:.12f}'.format)
         df = pd.DataFrame({'MJD': mjd_list, 'Time': time_list, 'V2': v2_list, 'V2_err': dv2_list,
                            'Eff_wave[m]': wl_list, 'Eff_band[m]': band_list, 'UCOORD[m]': uc_list,
                            'VCOORD[m]': vc_list})
         df_e = df.apply(pd.Series.explode)
+        df_e.rename_axis("Night", axis='index', inplace=True)
+        unique = df_e.index.nunique()
+        for i in range(unique):
+            df_e.loc[i, ['night']] = i + 1
         return df_e
     else:
         if verbose:
@@ -65,13 +72,14 @@ def unpack_multidatasets(fitsfile, count, verbose = False):
         time = fitsfile["OI_VIS2"].data["TIME"]
         wl = fitsfile["OI_WAVELENGTH"].data["EFF_WAVE"]
         band = fitsfile["OI_WAVELENGTH"].data["EFF_BAND"]
-
+        night = (np.ones(len(v2))).tolist()
         wl_list = [wl.tolist() for _ in range(len(v2))]
         band_list = [band.tolist() for _ in range(len(v2))]
 
         pd.set_option('display.float_format', '{:.12f}'.format)
         df = pd.DataFrame({'MJD': mjd, 'Time': time, 'V2': v2.tolist(), 'V2_err': dv2.tolist(),
-                           'Eff_wave[m]': wl_list, 'Eff_band[m]': band_list, 'UCOORD[m]': ucoord, 'VCOORD[m]': vcoord})
+                           'Eff_wave[m]': wl_list, 'Eff_band[m]': band_list, 'UCOORD[m]': ucoord, 'VCOORD[m]': vcoord,
+                           'night': night})
 
         return df
 
@@ -254,16 +262,16 @@ def combined(*dfs, fulldf=False):
     band = pd.concat([df['Band'] for df in dfs], ignore_index=True)
     brack = pd.concat([df['Bracket'] for df in dfs], ignore_index=True)
     inst = pd.concat([df['Instrument'] for df in dfs], ignore_index=True)
-
+    nights = pd.concat([df['Night'] for df in dfs], ignore_index = True)
 
     if not fulldf:
-        return b, v2, dv2, wave, band, brack, inst
+        return b, v2, dv2, wave, band, brack, inst, nights
 
     if fulldf:
         return pd.DataFrame({
             'B': b, 'V2': v2, 'dV2': dv2,
             'Wave': wave, 'Band': band,
-            'Bracket': brack, 'Instrument': inst})
+            'Bracket': brack, 'Instrument': inst, 'Nights': nights})
 
 
 class InterferometryData:
@@ -278,7 +286,7 @@ class InterferometryData:
 
     def make_df(self, LDC=None):
         n = len(self.B)
-
+        # print(self.Night)
         if LDC is None:
             ldc_col = [None] * n
         elif np.isscalar(LDC):
@@ -296,8 +304,8 @@ class InterferometryData:
             "LDC": ldc_col,
             "Band": self.Band,
             "Bracket": self.Bracket,
-            "Instrument": [self.instrument] * len(self.B)
-
+            "Instrument": [self.instrument] * len(self.B),
+            "Night": self.Night
         })
 
     def make_ldmcdf(self, LDC):
@@ -374,6 +382,7 @@ class MircxData(InterferometryData):
 
     def process(self):
         df = self.raw.dropna(subset=['V2', 'V2_err'])  # clean NaNs
+        df = df.reset_index(drop=True)
         self.cleaned = df
 
         ucoord = (df['UCOORD[m]'].values).astype('float')
@@ -384,6 +393,7 @@ class MircxData(InterferometryData):
         self.Wave = df['Eff_wave[m]']
         self.Band = df['Eff_band[m]']
         self.Bracket = df['Bracket']
+        self.Night = df['night']
 
 class MysticData(InterferometryData):
     def __init__(self, df):
@@ -391,6 +401,7 @@ class MysticData(InterferometryData):
 
     def process(self):
         df = self.raw.dropna(subset=['V2', 'V2_err'])  # clean NaNs
+        df = df.reset_index(drop=True)
         self.cleaned = df
 
         ucoord = (df['UCOORD[m]'].values).astype('float')
@@ -401,6 +412,7 @@ class MysticData(InterferometryData):
         self.Wave = df['Eff_wave[m]']
         self.Band = df['Eff_band[m]']
         self.Bracket = df['Bracket']
+        self.Night = df['night']
 
 class SpicaData(InterferometryData):
     def __init__(self, df):

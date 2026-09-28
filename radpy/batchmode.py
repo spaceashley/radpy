@@ -256,8 +256,71 @@ def convert_names_to_latex(names):
     return names2
 
 
+def extract_v0s_for_latex(star):
+    fitted_v0s = star.ldv02_by_group
+    fitted_dv0s = star.ldv02_err_by_group
+
+    v0dv0 = {}
+
+    for key, value in fitted_v0s.items():
+        error = fitted_dv0s[key]
+
+        v0dv0[r"$V_{0}^{2}$ " + key] = rf"${value:.6f} \pm {error:.6f}$"
+
+    return v0dv0
+
+
+def extract_ldcs_for_latex(star):
+    ldcs = {}
+    ldc_values = {
+        r"$\mu_{\rm R}$": star.ldc_R,
+        r"$\mu_{\rm H}$": star.ldc_H,
+        r"$\mu_{\rm J}$": star.ldc_J,
+        r"$\mu_{\rm K}$": star.ldc_K,
+    }
+
+    for parameter, value in ldc_values.items():
+        if value is not None:
+            ldcs[parameter] = value
+
+    return ldcs
+
+
+def transform_star_to_table(star, star_name, v0_flag=False):
+    star_rows = {}
+    latex_rows = {}
+    if v0_flag:
+        star_rows = {
+            "Star": star_name,
+            "D (pc)": rf"${star.dist:.4f} \pm {star.dist_err:.4f}$",
+            r"$\theta_{\rm UD}$ (mas)": rf"${star.udtheta:.4f} \pm {star.udtheta_err:.4f}$",
+            r"$\theta_{\rm LD}$ (mas)": rf"${star.ldtheta:.4f} \pm {star.ldtheta_err:.4f}$",
+            r"$T_{\rm eff}$ (K)": rf"${star.teff:.4f} \pm {star.teff_err:.4f}$",
+            r"$L_{\star} (\rm L_{\odot})$": rf"${star.lum:.4f} \pm {star.lum_err:.4f}$",
+            r"$R_{\star} (\rm R_{\odot})$": rf"${star.rad:.4f} \pm {star.rad_err:.4f}$",
+        }
+        ldcs_extracted = extract_ldcs_for_latex(star)
+        v0s_extracted = extract_v0s_for_latex(star)
+        latexrows = star_rows | v0s_extracted | ldcs_extracted
+        latex_rows = latexrows
+
+    if not v0_flag:
+        latex_rows = {
+            "Star": star_name,
+            "D (pc)": rf"${star.dist:.4f} \pm {star.dist_err:.4f}$",
+            r"$\theta_{\rm UD}$ (mas)": rf"${star.udtheta:.4f} \pm {star.udtheta_err:.4f}$",
+            r"$\theta_{\rm LD}$ (mas)": rf"${star.ldtheta:.4f} \pm {star.ldtheta_err:.4f}$",
+            r"$T_{\rm eff}$ (K)": rf"${star.teff:.4f} \pm {star.teff_err:.4f}$",
+            r"$L_{\star} (\rm L_{\odot})$": rf"${star.lum:.4f} \pm {star.lum_err:.4f}$",
+            r"$R_{\star} (\rm R_{\odot})$": rf"${star.rad:.4f} \pm {star.rad_err:.4f}$",
+        }
+        ldcs_extracted = extract_ldcs_for_latex(star)
+        latex_rows = latex_rows | ldcs_extracted
+
+    return latex_rows
+
 def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows, ldc_method, mc_num=71, bs_num=71,
-                 set_axis=None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, uselatex = False, verbose=True):
+                 set_axis=None, image_ext=None, binned=None, v0_flag=False, uselatex=False, verbose=True):
     ##################################################################
     # Function: process_star                                         #
     # Inputs: star_name -> name of star                              #
@@ -274,8 +337,6 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     #         image_ext -> image extension for file                  #
     #                      Options: '.jpg', '.png', '.pdf', '.eps'   #
     #         binned -> data you want binned i.e. ['pavo']           #
-    #         ldc_band -> limb darkening band you want               #
-    #                     Options: 'ldc_R', 'ldc_H', 'ldc_K', 'ldc_J'#
     #         v0_flag - > allows you to fit for a scaling factor     #
     #                     V0^2, Default is false.                    #
     #         verbose -> allows print statements to screen           #
@@ -310,6 +371,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     if star_id is None:
         star_id = star_name
     files = find_files_for_star(star_id, data_dir)
+    # print(files)
     if not files:
         print(f"No files found for {star_name} ({star_id})")
         return
@@ -339,8 +401,7 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
 
     # Combine all available data using RADPy's combined() utility
     combined_args = [obj.make_df() for obj in wrap_data.values()]
-
-    b, v2, dv2, wave, band, brack, inst = combined(*combined_args)
+    b, v2, dv2, wave, band, brack, inst, nights = combined(*combined_args)
     spf = b / wave
 
     # Set up stellar parameters
@@ -359,7 +420,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         star.dist_err = dD
 
     # Initial fits
-    initial_UDfit(spf, v2, dv2, 0.5, star, v0_flag , verbose=verbose)
+    initial_UDfit(spf, v2, dv2, 0.5, star, v0_flag, verbose=verbose)
+
     initial_LDfit(spf, v2, dv2, star, 'R', ldc_method, v0_flag, verbose=verbose)
 
     # Monte Carlo uniform-disk fit
@@ -368,7 +430,8 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     udfit_values(spf, v2, dv2, results_UD, stellar_params=star, v0_flag=v0_flag, verbose=verbose)
 
     # Monte Carlo limb-darkened fit
-    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2], datasets=datasets, stellar_params=star, ldc_method = ldc_method, v0_flag = v0_flag, verbose=verbose)
+    run_LDfit(bs_num, mc_num, ogdata=[spf, v2, dv2, inst, nights], datasets=datasets, stellar_params=star,
+              ldc_method=ldc_method, v0_flag=v0_flag, verbose=verbose)
 
     # Calculate additional stellar parameters
     calc_star_params(star, verbose=verbose)
@@ -378,11 +441,11 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
     os.makedirs(plot_dir, exist_ok=True)
 
     data_dict = data_dict_plotting(wrap_data)
+
     if binned:
         bin_only = [k for k in binned if k in data_dict]
     else:
         bin_only = None
-
     star_title = convert_names_to_latex([star_name])
     # Uniform disk plot
     fig1, _ = plot_v2_fit(
@@ -394,9 +457,10 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         eq_text=True,
         set_axis=set_axis,
         title=star_title[0],
-        uselatex = uselatex,
+        uselatex=uselatex,
         show=False
     )
+
     starID = star_name.replace(" ", "")
     save_plot(fig1, plot_dir, starID, "UDfit", image_ext)
 
@@ -407,62 +471,51 @@ def process_star(star_name, data_dir, output_dir, stellar_param_dict, latex_rows
         datasets_to_plot=list(data_dict.keys()),
         to_bin=bin_only,
         plot_ldmodel=True,
-        ldc_band=ldc_band,
+        # ldc_band=ldc_band,
         title=star_title[0],
         set_axis=set_axis,
         eq_text=True,
-        uselatex = uselatex,
+        uselatex=uselatex,
         show=False
     )
     save_plot(fig2, plot_dir, starID, "LDfit", image_ext)
-
+    star_rows = []
     # Collect results for LaTeX
     if v0_flag:
-        latex_rows.append({
+        star_rows.append({
             "Star": star_name,
-            "D (pc)": star.dist,
-            r"$\Delta \rm D (pc)$": star.dist_err,
-            r"$V_{0}^{2}$": star.ldv02,
-            r"$\Delta V_{0}^{2}$": star.ldv02_err,
-            r"$\theta_{\rm UD}$ (mas)": star.udtheta,
-            r"$\Delta\theta_{\rm UD}$ (mas)": star.udtheta_err,
-            r"$\theta_{\rm LD}$ (mas)": star.ldtheta,
-            r"$\Delta\theta_{\rm LD}$ (mas)": star.ldtheta_err,
-            r"$T_{\rm eff}$ (K)": star.teff,
-            r"$\Delta T_{\rm eff}$ (K)": star.teff_err,
-            r"$L_{\star} (\rm L_{\odot})$": star.lum,
-            r"$\Delta L_{\star} (\rm L_{\odot})$": star.lum_err,
-            r"$R_{\star} (\rm R_{\odot})$": star.rad,
-            r"$\Delta R_{\star} (\rm R_{\odot})$": star.rad_err,
-            r"$\mu_{\rm R}$": star.ldc_R,
-            r"$\mu_{\rm K}$": star.ldc_K,
-            r"$\mu_{\rm H}$": star.ldc_H,
-            r"$\mu_{\rm J}$": star.ldc_J,
+            "D (pc)": rf"${star.dist:.4f} \pm {star.dist_err:.4f}$",
+            r"$\theta_{\rm UD}$ (mas)": rf"${star.udtheta:.4f} \pm {star.udtheta_err:.4f}$",
+            r"$\theta_{\rm LD}$ (mas)": rf"${star.ldtheta:.4f} \pm {star.ldtheta_err:.4f}$",
+            r"$T_{\rm eff}$ (K)": rf"${star.teff:.4f} \pm {star.teff_err:.4f}$",
+            r"$L_{\star} (\rm L_{\odot})$": rf"${star.lum:.4f} \pm {star.lum_err:.4f}$",
+            r"$R_{\star} (\rm R_{\odot})$": rf"${star.rad:.4f} \pm {star.rad_err:.4f}$",
         })
+        ldcs_extracted = extract_ldcs_for_latex(star)
+        v0s_extracted = extract_v0s_for_latex(star)
+        latexrows = star_rows[0] | v0s_extracted | ldcs_extracted
+        latex_rows.append(latexrows)
+
     if not v0_flag:
-        latex_rows.append({
+        star_rows.append({
             "Star": star_name,
-            "D (pc)": star.dist,
-            r"$\Delta \rm D (pc)$": star.dist_err,
-            r"$\theta_{\rm UD}$ (mas)": star.udtheta,
-            r"$\Delta\theta_{\rm UD}$ (mas)": star.udtheta_err,
-            r"$\theta_{\rm LD}$ (mas)": star.ldtheta,
-            r"$\Delta\theta_{\rm LD}$ (mas)": star.ldtheta_err,
-            r"$T_{\rm eff}$ (K)": star.teff,
-            r"$\Delta T_{\rm eff}$ (K)": star.teff_err,
-            r"$L_{\star} (\rm L_{\odot})$": star.lum,
-            r"$\Delta L_{\star} (\rm L_{\odot})$": star.lum_err,
-            r"$R_{\star} (\rm R_{\odot})$": star.rad,
-            r"$\Delta R_{\star} (\rm R_{\odot})$": star.rad_err,
-            r"$\mu_{\rm R}$": star.ldc_R,
-            r"$\mu_{\rm K}$": star.ldc_K,
-            r"$\mu_{\rm H}$": star.ldc_H,
-            r"$\mu_{\rm J}$": star.ldc_J,
+            "D (pc)": rf"${star.dist:.4f} \pm {star.dist_err:.4f}$",
+            r"$\theta_{\rm UD}$ (mas)": rf"${star.udtheta:.4f} \pm {star.udtheta_err:.4f}$",
+            r"$\theta_{\rm LD}$ (mas)": rf"${star.ldtheta:.4f} \pm {star.ldtheta_err:.4f}$",
+            r"$T_{\rm eff}$ (K)": rf"${star.teff:.4f} \pm {star.teff_err:.4f}$",
+            r"$L_{\star} (\rm L_{\odot})$": rf"${star.lum:.4f} \pm {star.lum_err:.4f}$",
+            r"$R_{\star} (\rm R_{\odot})$": rf"${star.rad:.4f} \pm {star.rad_err:.4f}$",
         })
+        ldcs_extracted = extract_ldcs_for_latex(star)
+        latexrows = star_rows[0] | ldcs_extracted
+        latex_rows.append(latexrows)
 
     print(f"Finished processing {star_name}")
 
-def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71, bs_num=71, set_axis = None, image_ext=None, binned=None, ldc_band=None, v0_flag = False, uselatex = False, verbose=True):
+
+def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71, bs_num=71, set_axis=None,
+               image_ext=None, binned=None, v0_flag=False, uselatex=False, save_as_latex=False, save_as_csv=True,
+               verbose=True):
     ######################################################
     # Function: batch_mode                               #
     # Inputs: star_file -> stellar param file            #
@@ -478,8 +531,6 @@ def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71
     #                   assigns)                         #
     #         image_ext -> sets image extension          #
     #         binned -> datasets you want binned         #
-    #         ldc_band -> limb-darkening coefficent you  #
-    #                     want plotted                   #
     #         v0_flag - > allows you to fit for a scale  #
     #                     factor, V0^2                   #
     #                     Default is false.              #
@@ -502,10 +553,17 @@ def batch_mode(star_file, data_dir, output_dir, latex_out, ldc_method, mc_num=71
     latex_rows = []
     count = 0
     for star_name in star_names:
-        process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num, set_axis = set_axis,
-                     image_ext=image_ext, binned=binned, ldc_band=ldc_band, ldc_method = ldc_method, v0_flag = v0_flag, uselatex = uselatex, verbose=verbose)
+        process_star(star_name, data_dir, output_dir, star_params, latex_rows, mc_num=mc_num, bs_num=bs_num,
+                     set_axis=set_axis,
+                     image_ext=image_ext, binned=binned, ldc_method=ldc_method, v0_flag=v0_flag, uselatex=uselatex,
+                     verbose=verbose)
         count += 1
 
     latex_df = pd.DataFrame(latex_rows)
-    write_latex_table(latex_df, latex_out)
-    print(f"Batch complete. Fit {count} stars. Plots in {os.path.join(output_dir, 'plots')}, results in {latex_out}")
+    if save_as_latex:
+        savefile = latex_out + ".tex"
+        write_latex_table(latex_df, savefile)
+    if save_as_csv:
+        savefile = latex_out + ".csv"
+        latex_df.to_csv(savefile, index=False)
+    print(f"Batch complete. Fit {count} stars. Plots in {os.path.join(output_dir, 'plots')}, results in {savefile}")

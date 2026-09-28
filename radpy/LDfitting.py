@@ -5,6 +5,7 @@ import concurrent.futures
 import scipy.special as ss
 from radpy.stellar import temp
 from astropy.stats import mad_std
+from lmfit import Parameters, Minimizer
 from radpy.UDfitting import chis, weight_avg, percent_diff, safe_theta_extraction, safe_thetaV0_extraction
 from radpy.limbdarkcoeffs import ldc_calc
 
@@ -13,6 +14,9 @@ warnings.filterwarnings("ignore", message="Using UFloat objects with std_dev==0 
 warnings.filterwarnings("ignore", message="DataFrameGroupBy.apply operated on the grouping columns")
 #Limb-darkened disk V2 equation
 def V2(sf, theta, mu):
+    sf = np.asarray(sf, dtype = float)
+    theta = float(theta)
+    my = np.asarray(mu, dtype = float)
     alpha = 1-mu
     beta = mu
     x = np.pi*sf*(theta/(206265*1000))
@@ -26,6 +30,178 @@ def scaledV2(sf, theta, mu, V0):
     vis = (V0**2)*((((alpha/2)+(beta/3))**(-2))*((alpha*(ss.jv(1,x)/x))+ beta*(np.sqrt(np.pi/2)*(ss.jv(3/2,x)/(x**(3/2)))))**2)
     return vis
 ##########################################################################################
+def multi_v0_residual(params, df):
+    #################################################################
+    # Function: multi_v0_residual                                   #
+    # Inputs: params -> fitting parameters                          #
+    #         df -> data frame of data being fit                    #
+    # Outputs: residual                                             #
+    # What it does:                                                 #
+    #      1. Assigns the theta value                               #
+    #      2. Extracts out each V0 value and maps it                #
+    #      3. Checks to make sure that there is no nans, infs, etc  #
+    #      4. Generates the base V2 model                           #
+    #      5. Multiplies base model by the V0^2 values according to #
+    #         night and instrument.                                 #
+    #      6. Calculates and returns the residual.                  #
+    #################################################################
+    theta = params["theta"].value
+
+    v0_by_group = {
+        name.removeprefix("V0_"): parameter.value
+        for name, parameter in params.items()
+        if name.startswith("V0_")
+    }
+
+    v0_values = df["V0_group"].map(v0_by_group)
+
+    if v0_values.isna().any():
+        missing_groups = (df.loc[v0_values.isna(), "V0_group"].drop_duplicates().tolist())
+        raise ValueError(f"No V0 parameter exists for groups: {missing_groups}")
+
+    base_model = V2(df["Spf"].to_numpy(), theta, df["LDC"].to_numpy(), )
+    model = base_model * v0_values.to_numpy() ** 2
+    residual = (df["V2"].to_numpy() - model) / df["dV2"].to_numpy()
+    return residual
+
+
+def fit_ld_with_v0_groups(df, stellar_params):
+    """
+    Fit one shared theta and one V0 for every unique V0_group.
+    """
+
+    ##################################################################
+    # Function: fit_ld_with_v0_groups                                #
+    # Inputs: df -> data frame of data being fit                     #
+    #         stellar_params -> StellarParams() object               #
+    # Outputs: theta -> fitted angular diameter                      #
+    #          dtheta -> error for angular diameter                  #
+    #          v0_by_group -> group of V0 values                     #
+    #          dv0_by_group -> group of the errors for the V0 values #
+    #          result.redchi -> chi-squared value for the fit        #
+    # What it does:                                                  #
+    #      1. Determines the V0 value groups for the datasets        #
+    #      2. Makes and adds the Parameters for lmfit                #
+    #      3. Creates the Minimizer object to perform the fit and    #
+    #         performs the fit                                       #
+    #      5. Extracts the results and separates the V0 values by    #
+    #         group.                                                 #
+    #      6. Returns the fitted parameters and the chi squared      #
+    ##################################################################
+    groups = sorted(df["V0_group"].astype(str).drop_duplicates().tolist())
+    params = Parameters()
+    params.add("theta", value=stellar_params.udtheta, min=0.0001, max=100, )
+
+    for group in groups:
+        params.add(f"V0_{group}", value=1.0, min=0.0, max=2.0, )
+
+    minner = Minimizer(multi_v0_residual, params, fcn_args=(df,), )
+    result = minner.minimize()
+
+    theta = result.params["theta"].value
+    dtheta = result.params["theta"].stderr
+
+    if dtheta is None:
+        dtheta = np.nan
+
+    v0_by_group = {}
+    dv0_by_group = {}
+
+    for group in groups:
+        parameter = result.params[f"V0_{group}"]
+        v0_by_group[group] = parameter.value
+        dv0_by_group[group] = (parameter.stderr
+                               if parameter.stderr is not None
+                               else np.nan)
+
+    return (theta, dtheta, v0_by_group, dv0_by_group, result.redchi,)
+
+
+def make_v0_group(df):
+    ###################################################################
+    # Function: make_v0_group                                         #
+    # Inputs: df -> dataframe containing the data for all instruments #
+    # Outputs: group_list -> list with the instrument and night       #
+    #                      assignments                                #
+    # What it does:                                                   #
+    #        1. Creates an empty list                                 #
+    #        2. Loops through the Instrument column and assigns       #
+    #           the correct instrument with the correct night         #
+    #        3. Returns the list.                                     #
+    ###################################################################
+
+    group_list = []
+    for i in range(len(df['Instrument'])):
+        instrument = df['Instrument'][i]
+        night = df['Night'][i]
+        group = f"{str(instrument).upper()}_{str(int(night))}"
+
+        group_list.append(group)
+
+    return group_list
+
+
+def aggregate_v0_results(v0_results):
+    """
+    Convert a list of V0 dictionaries into per-group statistics.
+    """
+    ##################################################################
+    # Function: aggregate_v0_results                                 #
+    # Inputs: v0_results -> list of the fitted v0 values in the MCMC #
+    # Outputs: avg_v0 -> average V0 value for each instrument and    #
+    #                  night                                         #
+    #          std_v0 -> standard deviation for each instrument and  #
+    #                  night                                         #
+    # What it does:                                                  #
+    #      1. Sorts the v0_values by instrument/night                #
+    #      2. Calculates the average and std of each group.          #
+    #      3. Returns the results.                                   #
+    ##################################################################
+    groups = sorted({
+        group
+        for result in v0_results
+        for group in result
+    })
+
+    avg_v0 = {}
+    std_v0 = {}
+
+    for group in groups:
+        values = np.array([
+            result[group]
+            for result in v0_results
+            if group in result
+        ])
+
+        avg_v0[group] = np.mean(values)
+        std_v0[group] = mad_std(values)
+
+    return avg_v0, std_v0
+
+
+def assign_v0_value(og_df, v0s):
+    ################################################################
+    # Function: assign_v0_value                                    #
+    # Inputs: og_df -> original data being fitted                  #
+    #         v0s -> list of the V0 values calculated in the MCMC  #
+    # Outputs: og_df -> original data being fitted with the V0     #
+    #                 values added to it                           #
+    # What it does:                                                #
+    #      1. Calls aggregate_v0_results and calculates the        #
+    #         average and standard deviation of the V0 values      #
+    #      2. Adds the averaged value to the original data frame   #
+    #         according to the Instrument and Night                #
+    #      3. Returns the new data frame                           #
+    ################################################################
+    v0_results = aggregate_v0_results(v0s)
+    num_nights = len(v0_results[0])
+    for i in range(num_nights):
+        for ii in range(len(og_df['Night'])):
+            if int(og_df['Night'][ii]) == i + 1:
+                og_df.loc[ii, 'V0'] = list(v0_results[0].values())[i]
+
+    return og_df
+
 # Random bracket function for bootstrapping for limb-darkening
 def random_bracket_ld(df, num_of_brackets):
     ###########################################################################
@@ -35,8 +211,9 @@ def random_bracket_ld(df, num_of_brackets):
     # Outputs: spf_br -> the spatial frequencies randomized                   #
     #          v2_br -> the visibility squared randomized                     #
     #          dv2_br -> the error on the v2 randomized                       #
-    #          ldc_br -> the limb-darkening coefficients
+    #          ldc_br -> the limb-darkening coefficients                      #
     #          wavgs -> weighted averages of the v2                           #
+    #          nights_br -> the V0_group assigned to each value               #
     # What it does:                                                           #
     #      1. sets the seed                                                   #
     #      2. picks a random number between 2 and the number of brackets      #
@@ -50,13 +227,14 @@ def random_bracket_ld(df, num_of_brackets):
     #         based on the bracket                                            #
     #      9. Splits up the dataframe into spatial frequency, v2, dv2, ldcs,  #
     #         and wavg                                                        #
-    #     10. Returns spatial frequency, v2, dv2, and wavg                    #
+    #     10. Returns spatial frequency, v2, dv2, wavg, and nights_br         #
     ###########################################################################
     np.random.seed()
     xdata = []
     ydata = []
     dydata = []
     ldcdata = []
+    nightdata = []
     numbr = np.random.randint(2, num_of_brackets)
     # chatgpt wrote the next couple lines
     random_group_ids = df['Bracket'].drop_duplicates().sample(n=numbr).values
@@ -74,9 +252,9 @@ def random_bracket_ld(df, num_of_brackets):
     dv2_br = random_groups_with_avg['dV2']
     ldc_br = random_groups_with_avg['LDC']
     wavgs = random_groups_with_avg['Wavg']
+    nights_br = random_groups_with_avg['V0_group']
 
-    return spf_br, v2_br, dv2_br, ldc_br, wavgs
-
+    return spf_br, v2_br, dv2_br, ldc_br, wavgs, nights_br
 ##########################################################################################
 def initial_LDfit(spf, v2, dv2, star_params, filt, ldc_method, v0_flag = False, verbose=False, debug = False):
     #####################################################################
@@ -168,14 +346,14 @@ def bootstrap_ld(df, inst):
     ###########################################################
     if inst == 'c' or inst == 'C':
         newv2 = np.random.normal(df['V2'], df['dV2'])
-        new_df = pd.DataFrame(np.column_stack((df['Spf'], newv2, df['dV2'], df['LDC'])),
-                              columns=['Spf', 'V2', 'dV2', 'LDC'])
+        new_df = pd.DataFrame(np.column_stack((df['Spf'], newv2, df['dV2'], df['LDC'], df['V0_group'])),
+                              columns=['Spf', 'V2', 'dV2', 'LDC', 'V0_group'])
         return new_df
     else:
         num_brackets = df['Bracket'].max()
-        spfbr, v2br, dv2br, ldcbr, avgdv2 = random_bracket_ld(df, num_brackets)
+        spfbr, v2br, dv2br, ldcbr, avgdv2, nightsbr = random_bracket_ld(df, num_brackets)
         newv2 = np.random.normal(v2br, avgdv2)
-        new_df = pd.DataFrame(np.column_stack((spfbr, newv2, dv2br, ldcbr)), columns=['Spf', 'V2', 'dV2', 'LDC'])
+        new_df = pd.DataFrame(np.column_stack((spfbr, newv2, dv2br, ldcbr, nightsbr)), columns=['Spf', 'V2', 'dV2', 'LDC', 'V0_group'])
         return new_df
 
 
@@ -193,9 +371,10 @@ def ldfit(df, stellar_params, v0_flag = False, verbose=False):
     #        2. initializes the parameters                              #
     #        3. Fits for the LD diameter using lmfit                    #
     #           uses for the weights as 1/dv2                           #
-    #        4. pulls out the theta                                     #
-    #        5. Returns the theta                                       #
-    #           If vo_flag is True, will pull V0 out and return it      #
+    #        4. If v0_flag is True: calls fit_ld_with_v0_groups         #
+    #        5. pulls out the theta                                     #
+    #        6. Returns the theta                                       #
+    #           If v0_flag is True, will pull V0s                       #
     #####################################################################
     if not v0_flag:
         #print("No scaling use")
@@ -208,21 +387,20 @@ def ldfit(df, stellar_params, v0_flag = False, verbose=False):
         return (theta_ld)
     if v0_flag:
         #print("Scaling used")
-        ldmodel = Model(scaledV2, independent_vars=['sf', 'mu'])
-        ld_params = ldmodel.make_params(theta=stellar_params.udtheta, V0 = 1.0)
-        ld_params['theta'].set(min=0.0001, max=100)
-        ld_result = ldmodel.fit(df['V2'], ld_params, sf=df['Spf'], mu=df['LDC'], weights=1 / (df['dV2']), scale_covar=True)
-        theta_ld, _,v0_ld, _ = safe_thetaV0_extraction(ld_result)
-        #theta_ld = ld_result.uvars['theta'].n
-        return (theta_ld, v0_ld)
+        result = fit_ld_with_v0_groups(df, stellar_params)
+        theta_ld = result[0]
+        v0s = result[2]
+        return (theta_ld, v0s)
 
 
-def ldfit_values(x, y, dy, mc_results, ldcs, stellar_params, v0_flag=False, verbose=False):
+def ldfit_values(x, y, dy, inst, nights, mc_results, ldcs, stellar_params, v0_flag=False, verbose=False):
     ##################################################################
     # Function: ldfit_values                                         #
     # Inputs: x -> the spatial frequencies                           #
     #         y -> the V2                                            #
     #        dy -> the error on the V2                               #
+    #        inst -> instrument                                      #
+    #        nights -> which night for V0 scaling                    #
     #        LD -> the list of diameters                             #
     #        ldcs -> limb darkening coefficients                     #
     #        stellar_params -> the star object                       #
@@ -230,8 +408,8 @@ def ldfit_values(x, y, dy, mc_results, ldcs, stellar_params, v0_flag=False, verb
     #        verbose - > if true, returns print statements           #
     # Outputs: avg_LD -> average limb darkened diameter              #
     #          std_LD -> the median absolute deviation of LD theta   #
-    #          avg_V0 -> the average V0^2 value is flag is set       #
-    #          std_V0 -> the standard deviation of the V0^2 value    #
+    #          avg_V0 -> the average V0^2 values if flag is set      #
+    #          std_V0 -> the standard deviation of the V0^2 values   #
     #          teff_ld[0] -> effective temperature                   #
     #          teff_ld[1] -> error on the effective temperature      #
     #          ldc_results -> the ldc for each band                  #
@@ -280,28 +458,36 @@ def ldfit_values(x, y, dy, mc_results, ldcs, stellar_params, v0_flag=False, verb
 
     if v0_flag:
         LD = mc_results[0]
-        V0 = mc_results[1]
+        V0_results = mc_results[1]
         avg_LD = np.mean(LD)
         std_LD = mad_std(LD)
-        avg_V0 = np.mean(V0)
-        std_V0 = mad_std(V0)
+        avg_V0, std_V0 = aggregate_v0_results(V0_results)
+        # std_V0 = mad_std(V0)
 
         teff_ld = temp(stellar_params.fbol, stellar_params.fbol_err, avg_LD, std_LD)
         # Store results dynamically
         ldc_results = {}
         chisq_results = {}
+        og_df = pd.DataFrame({"Spf": x, "V2": y, "dV2": dy, "Inst": inst, "Night": nights})
+        ogdf_v0s = assign_v0_value(og_df, V0_results)
 
         for band in ldcs:
             ldc_val = ldcs[band]
             if ldc_val is not None:
-                model_v2 = scaledV2(x, avg_LD, ldc_val, avg_V0)
-                chisq, chisqr = chis(y, model_v2, dy, 2)
+                model_v2 = ((ogdf_v0s['V0']).to_numpy() ** 2) * V2(x, avg_LD, ldc_val)
+                # chisq, chisqr = chis(y, model_v2, dy, 2)
                 ldc_results[band] = ldc_val
+                number_of_params = 1 + len(avg_V0)
+                chisq, chisqr = chis(y, model_v2, dy, number_of_params)
                 chisq_results[band] = {"chisq": chisq, "chisqr": chisqr}
 
         if verbose:
             print('Limb-darkened Disk Diameter after MC/BS:', round(avg_LD, 4), '+/-', round(std_LD, 5), 'mas')
-            print('V0^2: ', round(avg_V0 ** 2, 4), '+/-', round(std_V0 ** 2, 5))
+            for group in sorted(avg_V0):
+                v0 = avg_V0[group]
+                dv0 = std_V0[group]
+
+                print(f"  {group}: V0 = {v0:.5f} +/- {dv0:.5f}; "f"V0^2 = {v0 ** 2:.5f}")
             for band, ldc_val in ldc_results.items():
                 print(f"Limb-darkening coefficient in {band}:", round(ldc_val, 5))
                 print(f"Chi-squared for {band} band:", round(chisq_results[band]["chisq"], 3))
@@ -309,7 +495,6 @@ def ldfit_values(x, y, dy, mc_results, ldcs, stellar_params, v0_flag=False, verb
             print("Temperature:", round(teff_ld[0], 1), "+/-", round(teff_ld[1], 1), "K")
 
         return avg_LD, std_LD, avg_V0, std_V0, teff_ld[0], teff_ld[1], ldc_results, chisq_results
-
 
 def mcbs_worker(args):
     #############################################################
@@ -360,7 +545,7 @@ def mcbs_worker(args):
         return (LD, V0)
 
 
-def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_flag = False, verbose=False, debug=False):
+def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_flag=False, verbose=False, debug=False):
     ######################################################################
     # Function: run_ldmcbs_fit_parallel                                  #
     # Inputs: mc_num -> number of Monte Carlo iterations                 #
@@ -369,6 +554,7 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_f
     #         datasets -> the datasets you want fit                      #
     #                     format: [inst1, inst2, inst3]                  #
     #         stellar_params -> star object                              #
+    #         ldc_method -> which method for LDC calculation             #
     #         v0_flag -> allows you to fit for a scaling factor, V0^2    #
     #                    Default is False                                #
     #         verbose -> if True, allows print statements                #
@@ -442,6 +628,8 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_f
     x = ogdata[0]
     y = ogdata[1]
     dy = ogdata[2]
+    inst = ogdata[3]
+    nights = ogdata[4]
     while diff_theta >= min_percent or diff_teff >= min_percent:
         LD = []
         V0 = []
@@ -472,6 +660,7 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_f
                 filt = filter_map_i[inst]
                 mu = np.random.normal(ldc_per_filter[filt], 0.02)
                 df = d.make_df(LDC=mu)
+                df['V0_group'] = make_v0_group(df)
                 df['Spf'] = df['B'] / np.random.normal(df['Wave'], df['Band'])
                 mc_dfs.append(df)
             mc_args.append((mc_dfs, bs_num, stellar_params, v0_flag, verbose))
@@ -480,37 +669,40 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_f
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = list(executor.map(mcbs_worker, mc_args))
             if not v0_flag:
-                #print("No scaling")
+                # print("No scaling")
                 for res in results:
-                    #print(len(res))
+                    # print(len(res))
                     LD.extend(res)
             if v0_flag:
-                #print("Scaling")
+                # print("Scaling")
                 for res in results:
-                    #print(len(res))
+                    # print(len(res))
                     LD.extend(res[0])
                     V0.extend(res[1])
 
         T_old = T_new
         theta_old = theta_new
         if not v0_flag:
-            theta_new, _, T_new, _, _, _ = ldfit_values(x, y, dy, LD, ldc_per_filter, stellar_params, v0_flag, verbose=debug)
-            stellar_params.update(teff=round(T_new,5), ldtheta=round(theta_new,5))
+            theta_new, _, T_new, _, _, _ = ldfit_values(x, y, dy, inst, nights, LD, ldc_per_filter, stellar_params,
+                                                        v0_flag, verbose=debug)
+            stellar_params.update(teff=round(T_new, 5), ldtheta=round(theta_new, 5))
             diff_teff = percent_diff(T_old, T_new, verbose=debug)
             diff_theta = percent_diff(theta_old, theta_new, verbose=debug)
             iter += 1
         if v0_flag:
-            theta_new, _, V0_new, _, T_new, _, _, _ = ldfit_values(x, y, dy, [LD, V0], ldc_per_filter, stellar_params, v0_flag, verbose=debug)
-            stellar_params.update(teff=round(T_new,5), ldtheta=round(theta_new,5))
+            theta_new, _, V0_new, _, T_new, _, _, _ = ldfit_values(x, y, dy, inst, nights, [LD, V0], ldc_per_filter,
+                                                                   stellar_params, v0_flag, verbose=debug)
+            stellar_params.update(teff=round(T_new, 5), ldtheta=round(theta_new, 5))
             diff_teff = percent_diff(T_old, T_new, verbose=debug)
             diff_theta = percent_diff(theta_old, theta_new, verbose=debug)
             iter += 1
     if verbose:
         print("Final Values after ", iter, " iterations:")
     if not v0_flag:
-        theta_ld, dtheta_ld, T, dT, final_ldcs, final_chis = ldfit_values(x, y, dy, LD, ldc_per_filter, stellar_params, v0_flag,
-                                                                      verbose)
-        stellar_params.update(teff=round(T,5), ldtheta=round(theta_ld,5), ldtheta_err=round(dtheta_ld,5))
+        theta_ld, dtheta_ld, T, dT, final_ldcs, final_chis = ldfit_values(x, y, dy, inst, nights, LD, ldc_per_filter,
+                                                                          stellar_params, v0_flag,
+                                                                          verbose)
+        stellar_params.update(teff=round(T, 5), ldtheta=round(theta_ld, 5), ldtheta_err=round(dtheta_ld, 5))
         for filt, mu in final_ldcs.items():
             setattr(stellar_params, f"ldc_{filt}", round(mu, 5))
         diff_teff = percent_diff(T_old, T_new, verbose)
@@ -518,12 +710,19 @@ def run_LDfit(mc_num, bs_num, ogdata, datasets, stellar_params, ldc_method, v0_f
 
         return (theta_ld, dtheta_ld, T, dT, final_ldcs, final_chis)
     if v0_flag:
-        theta_ld, dtheta_ld, v0_ld, dv0_ld, T, dT, final_ldcs, final_chis = ldfit_values(x, y, dy, [LD, V0], ldc_per_filter, stellar_params, v0_flag,
-                                                                      verbose)
-        stellar_params.update(teff=round(T,5), ldtheta=round(theta_ld,5), ldtheta_err=round(dtheta_ld,5), ldv02 = round(v0_ld**2, 5), ldv02_err = round(dv0_ld**2, 5))
+        theta_ld, dtheta_ld, v0_ld, dv0_ld, T, dT, final_ldcs, final_chis = ldfit_values(x, y, dy, inst, nights,
+                                                                                         [LD, V0], ldc_per_filter,
+                                                                                         stellar_params, v0_flag,
+                                                                                         verbose)
+
+        v0_squared = {group: value ** 2 for group, value in v0_ld.items()}
+        dv0_squared = {group: value ** 2 for group, value in dv0_ld.items()}
+
+        stellar_params.update(teff=round(T, 5), ldtheta=round(theta_ld, 5), ldtheta_err=round(dtheta_ld, 5),
+                              ldv02_by_group=v0_squared, ldv02_err_by_group=dv0_squared)
         for filt, mu in final_ldcs.items():
             setattr(stellar_params, f"ldc_{filt}", round(mu, 5))
         diff_teff = percent_diff(T_old, T_new, verbose)
         diff_theta = percent_diff(theta_old, theta_new, verbose)
 
-        return (theta_ld, dtheta_ld, v0_ld**2, dv0_ld**2, T, dT, final_ldcs, final_chis)
+        return (theta_ld, dtheta_ld, v0_squared, dv0_squared, T, dT, final_ldcs, final_chis)
