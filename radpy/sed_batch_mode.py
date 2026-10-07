@@ -1,3 +1,4 @@
+import json
 from radpy.sedfit import *
 from radpy.stellar import *
 from radpy.batchmode import extract_id, find_files_for_star, convert_names_to_latex, format_catalog_name, save_plot
@@ -141,6 +142,199 @@ def write_table(df, out_dir, out_file):
     os.chdir(out_dir)
     df.to_csv(out_file, sep='\t', index=False)
 
+def _json_value(value):
+    """Convert NumPy/scalar values into JSON-serializable values."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+
+    if isinstance(value, (np.integer,)):
+        return int(value)
+
+    if isinstance(value, (np.floating,)):
+        return float(value)
+
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+
+    return value
+
+def save_sed_fit_bundle(sed_fit, star, star_name, output_dir, unit="micron", fit_config=None, save_pickle=False):
+    """
+    Save the fitted SED in a portable format.
+
+    The main data are stored in a compressed .npz file. Metadata and
+    fitted stellar parameters are stored in a .json file.
+
+    Parameters
+    ----------
+    sed_fit : SEDFit object
+        Best-fit object returned by fit_sed().
+    star : StellarParams object
+        Stellar parameter object used during fitting.
+    star_name : str
+        Name of the target star.
+    output_dir : str
+        Directory in which the bundle will be written.
+    unit : str
+        Unit passed to convert(), usually "AA" or "micron".
+    fit_config : dict, optional
+        Configuration used for the fit.
+    save_pickle : bool
+        Also save the original SEDFit object as a pickle file.
+    """
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    safe_name = "".join(character if character.isalnum() or character in ("-", "_") else "_" for character in str(star_name))
+
+    bundle_dir = os.path.join(output_dir, f"{safe_name}sedfit")
+    os.makedirs(bundle_dir, exist_ok=True)
+
+    (observed_wavelength, observed_flux, observed_wavelength_error, observed_flux_error, model_wavelength, model_flux,
+     synthetic_flux) = convert(sed_fit, unit=unit)
+
+    observed_wavelength = np.asarray(observed_wavelength, dtype=float)
+    observed_flux = np.asarray(observed_flux, dtype=float)
+    observed_wavelength_error = np.asarray(observed_wavelength_error, dtype=float)
+    observed_flux_error = np.asarray(observed_flux_error, dtype=float)
+    model_wavelength = np.asarray(model_wavelength, dtype=float)
+    model_flux = np.asarray(model_flux, dtype=float)
+    synthetic_flux = np.asarray(synthetic_flux, dtype=float)
+
+    # Quantity used in the publication-style plot.
+    observed_lambda_flux = observed_wavelength * observed_flux
+    observed_lambda_flux_error = (observed_wavelength * observed_flux_error)
+    model_lambda_flux = model_wavelength * model_flux
+    synthetic_lambda_flux = observed_wavelength * synthetic_flux
+
+    # Residuals in dex.
+    residuals = np.log10(observed_lambda_flux / synthetic_lambda_flux)
+
+    # Save all numerical data in one compressed file.
+    data_path = os.path.join(bundle_dir, "fit_data.npz")
+
+    np.savez_compressed(
+        data_path,
+        observed_wavelength=observed_wavelength,
+        observed_flux=observed_flux,
+        observed_wavelength_error=observed_wavelength_error,
+        observed_flux_error=observed_flux_error,
+        model_wavelength=model_wavelength,
+        model_flux=model_flux,
+        synthetic_flux=synthetic_flux,
+        observed_lambda_flux=observed_lambda_flux,
+        observed_lambda_flux_error=observed_lambda_flux_error,
+        model_lambda_flux=model_lambda_flux,
+        synthetic_lambda_flux=synthetic_lambda_flux,
+        residuals=residuals,
+    )
+
+    # Extract the fitted values that are available.
+    fitted_parameters = {
+        "distance_pc": getattr(sed_fit, "dist", None),
+        "av": None,
+        "radius_rsun": None,
+        "teff_k": None,
+        "logg": None,
+        "feh": None,
+        "chi2": getattr(star, "SEDchi2", None),
+        "reduced_chi2": getattr(star, "SEDchi2red", None),
+        "fbol": getattr(star, "fbol", None),
+        "fbol_err": getattr(star, "fbol_err", None),
+    }
+
+    # Prefer values from the fitted SEDFit object.
+    getter_map = {
+        "av": "getav",
+        "radius_rsun": "getr",
+        "teff_k": "getteff",
+        "logg": "getlogg",
+        "feh": "getfeh",
+    }
+    for parameter, getter_name in getter_map.items():
+        getter = getattr(sed_fit, getter_name, None)
+
+        if getter is None:
+            continue
+
+        try:
+            value = getter()
+
+            if isinstance(value, np.ndarray):
+                value = value.tolist()
+
+            if isinstance(value, (list, tuple)) and len(value) == 1:
+                value = value[0]
+
+            fitted_parameters[parameter] = _json_value(value)
+
+        except Exception:
+            # Keep the value as None if a particular model does not expose
+            # the expected getter.
+            pass
+
+        metadata = {
+            "star_name": str(star_name),
+            "unit": unit,
+            "data_file": "fit_data.npz",
+            "fitted_parameters": _json_value(fitted_parameters),
+            "fit_config": _json_value(fit_config or {}),
+            "star_metadata": {
+                key: _json_value(value)
+                for key, value in vars(star).items()
+                if not key.startswith("_")
+            },
+        }
+
+        metadata_path = os.path.join(bundle_dir, "metadata.json")
+
+        with open(metadata_path, "w", encoding="utf-8") as metadata_file:
+            json.dump(metadata, metadata_file, indent=2, default=_json_value)
+
+        # Optional convenience copy. This is not the portable source of truth.
+        if save_pickle:
+            pickle_path = os.path.join(bundle_dir, "sed_fit.pkl")
+
+            with open(pickle_path, "wb") as pickle_file:
+                pickle.dump(sed_fit, pickle_file)
+
+        return bundle_dir
+
+    def load_sed_fit_bundle(bundle_dir):
+        """
+        Load a previously saved SED fit bundle.
+
+        Returns
+        -------
+        result : dict
+            Dictionary containing metadata and NumPy arrays.
+        """
+        metadata_path = os.path.join(bundle_dir, "metadata.json")
+        data_path = os.path.join(bundle_dir, "fit_data.npz")
+
+        with open(metadata_path, "r", encoding="utf-8") as metadata_file:
+            metadata = json.load(metadata_file)
+
+        data = np.load(data_path)
+
+        return {
+            "metadata": metadata,
+            "observed_wavelength": data["observed_wavelength"],
+            "observed_flux": data["observed_flux"],
+            "observed_wavelength_error": data["observed_wavelength_error"],
+            "observed_flux_error": data["observed_flux_error"],
+            "model_wavelength": data["model_wavelength"],
+            "model_flux": data["model_flux"],
+            "synthetic_flux": data["synthetic_flux"],
+            "observed_lambda_flux": data["observed_lambda_flux"],
+            "observed_lambda_flux_error": data[
+                "observed_lambda_flux_error"
+            ],
+            "model_lambda_flux": data["model_lambda_flux"],
+            "synthetic_lambda_flux": data["synthetic_lambda_flux"],
+            "residuals": data["residuals"],
+        }
+
 
 def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fitting_param_dict, unit, num_iter, set_axis, image_ext,
                      result_rows, diam_rows, uselatex, logplot, fbol_lam, own_photometry=False, verbose=False, debug = False):
@@ -183,7 +377,34 @@ def sed_process_star(star_name, data_dir, output_dir, stellar_param_dict, fittin
                       fehrange=fit_ranges[2], avrange=fit_ranges[3], fitT=fit_flags[0],fit_logg=fit_flags[1], fit_feh=fit_flags[2],
                       fit_av=fit_flags[3], verbose=verbose, debug = debug)
 
+    fit_config = {
+        "initial_guess": init_values,
+        "num_iter": num_iter,
+        "unit": unit,
+        "model": model,
+        "teff_range": fit_ranges[0],
+        "logg_range": fit_ranges[1],
+        "feh_range": fit_ranges[2],
+        "av_range": fit_ranges[3],
+        "fit_teff": fit_flags[0],
+        "fit_logg": fit_flags[1],
+        "fit_feh": fit_flags[2],
+        "fit_av": fit_flags[3],
+    }
 
+    fit_archive_dir = os.path.join(output_dir, "fit_archives")
+
+    bundle_dir = save_sed_fit_bundle(
+        sed_fit=sed_fit,
+        star=star,
+        star_name=star_name,
+        output_dir=fit_archive_dir,
+        unit=unit,
+        fit_config=fit_config,
+        save_pickle=False,
+    )
+
+    print(f"Saved fit archive: {bundle_dir}")
     sed_results, diam_results = write_results(star_name, sed_fit, star, output_dir, result_rows, diam_rows)
 
     plot_dir = os.path.join(output_dir, "plots")
@@ -224,4 +445,4 @@ def sed_batchmode(starfile, data_dir, out_dir, res_out, diam_out, unit, num_iter
     write_table(diam_df, out_dir, diam_out)
 
     print(
-        f"Batch complete. Fit {count} stars. Plots in {os.path.join(out_dir, 'plots')}, SED fit results in {res_out}, File for diameter fitting in {diam_out}")
+        f"Batch complete. Fit {count} stars. \n Plots in {os.path.join(out_dir, 'plots')} \n SED fit results in {res_out}. \n File for diameter fitting in {diam_out}. \n Archived fit files in {os.path.join(out_dir, "fit_archives")}.")

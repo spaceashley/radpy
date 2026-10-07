@@ -8,7 +8,6 @@ import contextlib
 import numpy as np
 import pandas as pd
 import dustmaps.sfd
-import pkg_resources
 from SEDFit.sed import SEDFit
 from astropy import units as u
 import matplotlib.pyplot as plt
@@ -20,7 +19,10 @@ from astroquery.simbad import Simbad
 from astroARIADNE.fitter import Fitter
 from astropy import coordinates as coord
 from radpy.stellar import check_if_string
-from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+from importlib.resources import files, as_file
+from matplotlib.ticker import (AutoMinorLocator,FixedLocator,
+                               FormatStrFormatter,FuncFormatter,LogLocator,
+                               MultipleLocator,NullFormatter)
 
 pyphot.config.set_units_backend('pint')
 #dustmaps.sfd.fetch()
@@ -213,34 +215,6 @@ def downloadflux(self, userinput, deletevot=True, **kwargs):
         return
 
 
-def set_quality(self):
-    with open(pkg_resources.resource_filename('SEDFit', 'quality.p'), 'rb') as file:
-        model = pickle.load(file)
-
-    n = len(self.sed)
-
-    # Keep dtype stable for TensorFlow
-    inp = np.full((n, 42, 2), -1.0, dtype=np.float32)
-
-    # Build index arrays once, with stable dtypes
-    sed_idx = np.asarray(self.sed['index'], dtype=np.int32)
-    flux = np.asarray(self.sed['flux'], dtype=np.float32)
-
-    inp[:, sed_idx, 0] = np.tile(np.max(flux) - flux, (n, 1))
-    inp[:, :, 1] = 0.0
-    inp[np.arange(n, dtype=np.int32), sed_idx, 1] = 1.0
-
-    # Call model directly (often less retracing-prone than predict in loops)
-    pred = model(tf.convert_to_tensor(inp, dtype=tf.float32), training=False)
-    q = np.round(pred.numpy(), 3)
-
-    self.sed['valid'] = q[:, 3]
-    self.sed['excess'] = q[:, 2]
-    self.sed['bad'] = q[:, 1]
-    a = np.where(q[:, 3] > 0.2)[0]
-    if len(a) / n < 0.3:
-        return False
-    return
 
 #%% Beginning of my own functions
 def pull_coords(star_id, star, verbose=False):
@@ -265,6 +239,27 @@ def pull_coords(star_id, star, verbose=False):
         print(f"\nCoordinates in sexagesimal format for {star_name}:")
         print(f"RA: {ra_sg}, Dec: {dec_sg}")
     return radeg, decdeg, ra_sg, dec_sg
+
+def set_quality(self):
+    res = files("SEDFit").joinpath("quality.p")
+    with as_file(res) as path:
+        with open(path, "rb") as file:
+            model = pickle.load(file)
+
+    n=len(self.sed)
+    input=np.zeros((n,42,2))-1
+    input[:,self.sed['index'].astype(int),0]=np.tile(np.max(self.sed['flux'])-self.sed['flux'],(n,1))
+    input[:,:,1]=0
+    input[range(len(self.sed)),self.sed['index'],1]=1
+    q=np.round(model.predict(input,verbose=0),3)
+    self.sed['valid']=q[:,3]
+    self.sed['excess']=q[:,2]
+    self.sed['bad']=q[:,1]
+    a=np.where(q[:,3]>0.2)[0]
+    if len(a)/n<0.3:
+        print('Warning: large number of fluxes rejected, due to IR excess, noise, or misattribution. Manual vetting suggested')
+        return False
+    return True
 
 def pull_gaia_id(starid, star, verbose = False):
     star_name = check_if_string(starid, verbose = verbose)
@@ -1623,71 +1618,252 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
     #       plotted                                          #
     #    3. Plots everything                                 #
     ##########################################################
+    plt.rcParams.update({"font.size": 15, "xtick.direction": "in", "ytick.direction": "in", "text.usetex": uselatex})
 
-    #iwave, iflux, idwave, idflux, mw, mf, msf = convert(x, unit)
+    # Get physical values, not log10-transformed values.
+    (lit_w, lit_f, lit_dw, lit_df, model_w, model_f, synth_f) = convert(x, unit=unit)
 
-    plt.rcParams.update({'font.size': 15})
-    plt.rcParams['xtick.direction'] = 'in'
-    plt.rcParams['ytick.direction'] = 'in'
-    plt.rcParams['text.usetex'] = uselatex
+    lit_w = np.asarray(lit_w, dtype=float)
+    lit_f = np.asarray(lit_f, dtype=float)
+    lit_dw = np.asarray(lit_dw, dtype=float)
+    lit_df = np.asarray(lit_df, dtype=float)
+    model_w = np.asarray(model_w, dtype=float)
+    model_f = np.asarray(model_f, dtype=float)
+    synth_f = np.asarray(synth_f, dtype=float)
 
-    f, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [10, 3]}, sharex=True)
-
-    model_xvals, model_yvals, litp_xvals, litp_yvals, litp_dxvals, litp_dyvals, synth_yvals, res, exp = set_values(x, unit,
-                                                                                                                   logplot=logplot,
-                                                                                                                   fbol_lam=fbol_lam,
-                                                                                                                   verbose=verbose)
-    xmin, xmax, ymin, ymax = setaxislimits(litp_xvals, litp_yvals, exp, unit, set_axis, logplot=logplot, fbol_lam=fbol_lam)
-    xloc, xlabels, yloc, ylabels = setaxisticklabels(litp_xvals, litp_yvals, exp, unit, set_axis, logplot=logplot, fbol_lam=fbol_lam)
-
-    axes[0].set_ylim(ymin, ymax)
-    axes[1].set_xlim(xmin, xmax)
-    axes[0].set_yticks(yloc)
-    axes[0].set_yticklabels(ylabels)
-    axes[1].set_xticks(xloc)
-    axes[1].set_xticklabels(xlabels)
-
-    axes[0].plot(model_xvals, model_yvals, 'g', linewidth=1, label=r'$\rm Model~Spectrum$')
-    axes[0].plot(litp_xvals, litp_yvals, 'b.', markersize=10, markerfacecolor='none', label=r'$\rm Photometry$')
-    axes[0].errorbar(litp_xvals, litp_yvals, xerr=litp_dxvals, yerr=litp_dyvals, fmt='.', markerfacecolor='none',
-                     color='blue', capsize=3)
-    axes[0].plot(litp_xvals, synth_yvals, 'r.', markersize=10, label=r'$\rm Synthetic~Photometry $')
-
-    axes[0].legend(prop={'size': 10}, loc='best')
-    axes[0].tick_params(axis='x', labelbottom=False)
-
-    axes[1].plot(litp_xvals, res, 'k.')
-    axes[1].errorbar(litp_xvals, res, yerr=litp_dyvals, fmt='.', color='black')
-    axes[1].axhline(y=0)
-    ramin, ramax, rloc, rlabel = set_res_axis(res, logplot = logplot)
-    axes[1].set_ylim(ramin, ramax)
-    axes[1].set_yticks(rloc)
-    axes[1].set_yticklabels(rlabel)
-    if logplot:
-        if unit == 'micron':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=5)
-        if unit == 'AA':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=5)
+    # Select either F_lambda or lambda F_lambda.
+    if fbol_lam:
+        observed_y = lit_w * lit_f
+        observed_yerr = lit_w * lit_df
+        model_y = model_w * model_f
+        synthetic_y = lit_w * synth_f
+        ylabel = (r"$\rm \lambda F_{\lambda}~[\mathrm{erg~cm^{-2}~s^{-1}}]$")
     else:
-        if unit == 'micron':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=0)
-        if unit == 'AA':
-            axes[1].set_ylabel(r'$\rm Residuals$', labelpad=0)
+        observed_y = lit_f
+        observed_yerr = lit_df
+        model_y = model_f
+        synthetic_y = synth_f
 
-    xlab, ylab = setaxislabels(exp, unit, logplot=logplot, fbol_lam=fbol_lam)
-    axes[1].set_xlabel(xlab)
-    axes[0].set_ylabel(ylab)
-    plt.subplots_adjust(wspace=0, hspace=0)
-    axes[0].xaxis.set_minor_locator(AutoMinorLocator())
-    axes[0].yaxis.set_minor_locator(AutoMinorLocator())
-    axes[1].xaxis.set_minor_locator(AutoMinorLocator())
-    axes[1].yaxis.set_minor_locator(AutoMinorLocator())
+        if unit == "AA":
+            ylabel = (r"$\rm F_{\lambda}~[\mathrm{erg~cm^{-2}~s^{-1}~\AA^{-1}}]$")
+        else:
+            ylabel = (r"$\rm F_{\lambda}~[\mathrm{erg~cm^{-2}~s^{-1}~\mu m^{-1}}]$")
 
-    if title:
-        axes[0].set_title(title)
-    if savefig:
-        f.savefig(savefig, bbox_inches='tight')
+    # Remove invalid values before plotting.
+    model_mask = (np.isfinite(model_w) & np.isfinite(model_y) & (model_w > 0) & (model_y > 0))
+
+    phot_mask = (np.isfinite(lit_w) & np.isfinite(observed_y) & np.isfinite(observed_yerr)
+                 & np.isfinite(synthetic_y) & (lit_w > 0) & (observed_y > 0) & (observed_yerr >= 0) & (
+                             synthetic_y > 0))
+
+    lit_w = lit_w[phot_mask]
+    lit_dw = lit_dw[phot_mask]
+    observed_y = observed_y[phot_mask]
+    observed_yerr = observed_yerr[phot_mask]
+    synthetic_y = synthetic_y[phot_mask]
+
+    model_w = model_w[model_mask]
+    model_y = model_y[model_mask]
+
+    # Residuals are logarithmic differences in dex.
+    residuals = np.log10(observed_y / synthetic_y)
+    residuals_err = 0.434 * observed_yerr / observed_y
+
+    # For linear plots, normalize the y-axis to a convenient exponent.
+    exponent = 0
+    if not logplot:
+        reference_value = observed_y[0]
+        if reference_value != 0:
+            exponent = math.floor(math.log10(abs(reference_value)))
+
+        scale = 10 ** exponent
+        observed_y = observed_y / scale
+        observed_yerr = observed_yerr / scale
+        model_y = model_y / scale
+        synthetic_y = synthetic_y / scale
+
+        if fbol_lam:
+            ylabel = (rf"$\rm \lambda F_{{\lambda}}~[\times 10^{{{exponent}}}~ \rm erg~cm^{{-2}}~s^{{-1}}]$")
+        elif unit == "AA":
+            ylabel = (rf"$\rm F_{{\lambda}}~[\times 10^{{{exponent}}}~\rm erg~cm^{{-2}}~s^{{-1}}~\AA^{{-1}}]$")
+        else:
+            ylabel = (rf"$\rm F_{{\lambda}}~[\times 10^{{{exponent}}}~erg~cm^{{-2}}~s^{{-1}}~\mu m^{{-1}}]$")
+
+    # Main figure
+    fig, axes = plt.subplots(2, 1, figsize=(9, 8), gridspec_kw={"height_ratios": [4.5, 1.25], "hspace": 0.0},
+                             sharex=True)
+    ax = axes[0]
+    ax_res = axes[1]
+
+    # Main SED
+    ax.plot(model_w, model_y, color="forestgreen", linewidth=1.6, label=r"$\rm Model~Spectrum$", zorder=1)
+    ax.errorbar(lit_w, observed_y, xerr=lit_dw, yerr=observed_yerr, fmt="o", markersize=7, markerfacecolor="white",
+                markeredgecolor="blue", markeredgewidth=1.6, ecolor="blue", elinewidth=1.3, capsize=4,
+                label=r"$\rm Photometry$", zorder=3)
+    ax.scatter(lit_w, synthetic_y, color="red", s=70, label=r"$\rm Synthetic~Photometry$", zorder=4)
+    # Residuals
+    ax_res.errorbar(lit_w, residuals, yerr=residuals_err, fmt="o", color="black", markerfacecolor="black",
+                    markersize=5, capsize=3, zorder=3)
+    ax_res.axhline(0, color="dodgerblue", linestyle="--", linewidth=1.3)
+
+    # Axis scaling
+    if logplot:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax_res.set_xscale("log")
+        ax.yaxis.set_major_locator(LogLocator(base=10.0))
+        ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1))
+        ax.yaxis.set_minor_formatter(NullFormatter())
+    else:
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+        ax_res.xaxis.set_minor_locator(AutoMinorLocator())
+        ax_res.yaxis.set_minor_locator(AutoMinorLocator())
+    # Sets the axis limits based on the photometry
+    if set_axis is not None:
+        xmin, xmax, ymin, ymax = set_axis
+
+        if not logplot:
+            ymin = ymin / (10 ** exponent)
+            ymax = ymax / (10 ** exponent)
+
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+
+    else:
+        # Wavelength limits are based primarily on the photometry.
+        x_min_data = np.nanmin(lit_w)
+        x_max_data = np.nanmax(lit_w)
+        x_min_plot = x_min_data * 0.75
+        model_x_max = x_max_data * 1.15
+        visible_model_mask = (np.isfinite(model_w) & np.isfinite(model_y) & (model_w >= x_min_plot)
+                              & (model_w <= model_x_max) & (model_w > 0) & (model_y > 0))
+
+        if np.any(visible_model_mask):
+            x_max_plot = max(x_max_data * 1.15, np.nanmax(model_w[visible_model_mask]))
+        else:
+            x_max_plot = x_max_data * 1.15
+
+        ax.set_xlim(x_min_plot, x_max_plot)
+
+        if logplot:
+            valid_observed = np.isfinite(observed_y) & (observed_y > 0)
+            valid_synthetic = np.isfinite(synthetic_y) & (synthetic_y > 0)
+            photometric_y = np.concatenate([observed_y[valid_observed], synthetic_y[valid_synthetic]])
+            y_min_plot = np.nanmin(photometric_y) * 0.5
+            y_max_plot = np.nanmax(photometric_y) * 2.5
+            ax.set_ylim(y_min_plot, y_max_plot)
+
+        else:
+            valid_observed = np.isfinite(observed_y)
+            valid_synthetic = np.isfinite(synthetic_y)
+            photometric_y = np.concatenate([observed_y[valid_observed], synthetic_y[valid_synthetic]])
+            y_min_plot = np.nanmin(photometric_y)
+            y_max_plot = np.nanmax(photometric_y)
+            y_range = y_max_plot - y_min_plot
+
+            if y_range == 0:
+                y_range = abs(y_max_plot) * 0.1
+
+            ax.set_ylim(y_min_plot - 0.10 * y_range, y_max_plot + 0.20 * y_range, )
+
+    # Residual tick locations and labels (to add a buffer and to make sure there are 5 tick labels
+    max_residual = np.nanmax(np.abs(residuals))
+    if max_residual <= 0.10:
+        residual_half_range = 0.10
+    elif max_residual <= 0.20:
+        residual_half_range = 0.20
+    else:
+        # Round upward to the nearest 0.1.
+        residual_half_range = (np.ceil(max_residual / 0.1) * 0.1)
+
+    residual_ticks = np.linspace(-residual_half_range, residual_half_range, 5)
+    ax_res.set_ylim(-residual_half_range, residual_half_range)
+    ax_res.yaxis.set_major_locator(FixedLocator(residual_ticks))
+
+    if residual_half_range < 0.1:
+        residual_labels = [f"{value:.2f}" for value in residual_ticks]
+    else:
+        residual_labels = [f"{value:.1f}" for value in residual_ticks]
+
+    ax_res.set_yticklabels(residual_labels)
+    ax_res.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax_res.yaxis.set_minor_formatter(NullFormatter())
+
+    # tick configuration
+    if unit == "micron":
+        tick_wavelengths = np.array([0.3, 0.5, 1.0, 2.0, 5.0, 10.0])
+        tick_labels = ["0.3\n(3000)", "0.5\n(5000)", "1\n(10000)", "2\n(20000)", "5\n(50000)", "10\n(100000)"]
+        minor_ticks = np.array(
+            [0.35, 0.40, 0.45, 0.60, 0.70, 0.80, 0.90, 1.10, 1.20, 1.30, 1.40, 1.50, 1.60, 1.70, 1.80, 1.90,
+             2.25, 2.50, 2.75, 3.00, 3.25, 3.50, 3.75, 4.00, 4.25, 4.50, 6.0, 7.0, 8.0, 9.0], dtype=float)
+
+    elif unit == "AA":
+        tick_wavelengths = np.array([3_000, 5_000, 10_000, 20_000, 50_000, 100_000])
+        tick_labels = ["3000", "5000", "10000", "20000", "50000", "100000"]
+        minor_ticks = np.array([3500, 4000, 4500, 6000, 7000, 8000, 9000, 11000, 12000, 13000, 14000, 15000,
+                                16000, 17000, 18000, 19000, 22500, 25000, 27500, 30000, 32500, 35000, 37500,
+                                40000, 42500, 45000, 60000, 70000, 80000, 90000], dtype=float)
+    else:
+        raise ValueError("unit must be either 'micron' or 'AA'")
+
+    xmin, xmax = ax.get_xlim()
+    valid_major = (tick_wavelengths >= xmin) & (tick_wavelengths <= xmax)
+    visible_ticks = tick_wavelengths[valid_major]
+    visible_labels = np.asarray(tick_labels)[valid_major]
+
+    ax.xaxis.set_major_locator(FixedLocator(visible_ticks))
+    ax.xaxis.set_major_formatter(NullFormatter())
+    ax_res.xaxis.set_major_locator(FixedLocator(visible_ticks))
+    label_map = {float(position): label for position, label in zip(visible_ticks, visible_labels)}
+
+    def wavelength_formatter(value, position):
+        return label_map.get(float(value), "")
+
+    ax_res.xaxis.set_major_formatter(FuncFormatter(wavelength_formatter))
+    if logplot:
+        visible_minor_ticks = minor_ticks[(minor_ticks >= xmin) & (minor_ticks <= xmax)]
+        visible_minor_ticks = visible_minor_ticks[~np.isin(visible_minor_ticks, visible_ticks)]
+        ax.xaxis.set_minor_locator(FixedLocator(visible_minor_ticks))
+        ax_res.xaxis.set_minor_locator(FixedLocator(visible_minor_ticks))
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax_res.xaxis.set_minor_formatter(NullFormatter())
+
+    ax.tick_params(axis="x", which="both", labelbottom=False)
+    ax_res.tick_params(axis="x", which="major", labelsize=12)
+
+    if logplot:
+        for axis in (ax, ax_res):
+            axis.tick_params(axis="x", which="minor", bottom=True, top=True, direction="in", length=4, width=1.0)
+    # Labels and styling
+    if not logplot:
+        ax.set_ylabel(ylabel, labelpad=22)
+    else:
+        ax.set_ylabel(ylabel)
+
+    ax_res.set_ylabel("Residuals")
+
+    if unit == "micron":
+        ax_res.set_xlabel(r"$ \rm Wavelength~[\mu\mathrm{m}]~(\AA)$")
+    else:
+        ax_res.set_xlabel(r"$ \rm Wavelength~[\AA]$")
+
+    if title is not None:
+        ax.set_title(title, fontsize=22, pad=10)
+
+    ax.legend(loc="best", fontsize=15, frameon=True, framealpha=1.0)
+
+    for axis in (ax, ax_res):
+        axis.tick_params(which="major", direction="in", top=True, right=True, length=8, width=1.3)
+        axis.tick_params(which="minor", direction="in", top=True, right=True, length=4, width=1.0)
+
+        for spine in axis.spines.values():
+            spine.set_linewidth(1.3)
+
+    if savefig is not None:
+        fig.savefig(savefig, dpi=300, bbox_inches="tight")
+
     if show:
         plt.show()
 
-    return f, axes
+    return fig, axes
