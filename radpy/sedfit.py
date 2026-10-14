@@ -1841,7 +1841,7 @@ def plot_sed(x, unit, logplot=True, fbol_lam=True, set_axis=None, title=None, sa
     else:
         ax.set_ylabel(ylabel)
 
-    ax_res.set_ylabel("Residuals")
+    ax_res.set_ylabel(r"$\rm Residuals$")
 
     if unit == "micron":
         ax_res.set_xlabel(r"$ \rm Wavelength~[\mu\mathrm{m}]~(\AA)$")

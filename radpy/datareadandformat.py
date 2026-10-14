@@ -140,7 +140,9 @@ def filename_extension(filename, inst_name, verbose=False, debug = False):
     if filename.endswith('.csv'):
         df = pd.read_csv(filename)
         df['Instrument'] = [inst_name] * len(df)
-        sorted_df = brackets(df, inst_name)
+        count = check_multidatasets(data)
+        new_df = unpack_multidatasets(data,count)
+        sorted_df = brackets(new_df, inst_name)
         num_brackets = sorted_df['Bracket'].max()
         print('Number of brackets:', num_brackets)
         return sorted_df, num_brackets
@@ -338,6 +340,7 @@ class PavoData(InterferometryData):
         self.Wave = self.B / df['B/lambda']
         self.Band = pd.Series(np.full(len(df), 5e-9))  # 5 nm
         self.Bracket = df['Bracket']
+        self.Night = df['night']
 
 
 class ClassicData(InterferometryData):
@@ -356,6 +359,7 @@ class ClassicData(InterferometryData):
         self.Wave = pd.Series(np.full(len(self.B), 2.1329e-6))  # meters
         self.Band = pd.Series(np.full(len(self.B), 5e-9))  # meters (5 nm)
         self.Bracket = df['Bracket']
+        self.Night = df['night']
 
 
 class VegaData(InterferometryData):
@@ -374,6 +378,7 @@ class VegaData(InterferometryData):
         self.Wave = df['lambda'] * 1e-9
         self.Band = pd.Series(np.full(len(df), 5e-9))
         self.Bracket = df['Bracket']
+        self.Night = df['night']
 
 
 class MircxData(InterferometryData):
